@@ -165,7 +165,7 @@ export default function Login() {
                   placeholder="Enter email address" 
                   {...register("email")}
                   className={cn(
-                    "h-10 pl-10 rounded-xl border-gray-100 bg-white focus:ring-0 focus:border-cartlist-orange transition-all font-medium text-xs",
+                    "h-10 pl-10 rounded-xl border-gray-100 bg-white focus:ring-0 focus:border-cartlist-orange transition-all font-medium text-base",
                     errors.email && "border-rose-200 bg-rose-50/30"
                   )}
                 />
@@ -187,7 +187,7 @@ export default function Login() {
                   type={showPassword ? "text" : "password"} 
                   {...register("password")}
                   className={cn(
-                    "h-10 pl-10 pr-10 rounded-xl border-gray-100 bg-white focus:ring-0 focus:border-cartlist-orange transition-all font-medium text-xs",
+                    "h-10 pl-10 pr-10 rounded-xl border-gray-100 bg-white focus:ring-0 focus:border-cartlist-orange transition-all font-medium text-base",
                     errors.password && "border-rose-200 bg-rose-50/30"
                   )}
                 />

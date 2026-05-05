@@ -228,7 +228,7 @@ export default function ForgotPassword() {
                       type="email"
                       placeholder="Enter your email address"
                       className={cn(
-                        "h-10 pl-10 rounded-xl border-gray-100 bg-white focus:ring-0 focus:border-cartlist-orange transition-all font-medium text-xs",
+                        "h-10 pl-10 rounded-xl border-gray-100 bg-white focus:ring-0 focus:border-cartlist-orange transition-all font-medium text-base",
                         emailForm.formState.errors.email && "border-rose-200 bg-rose-50/30"
                       )}
                       {...emailForm.register("email")}
@@ -328,7 +328,7 @@ export default function ForgotPassword() {
                       type={showPassword ? "text" : "password"}
                       placeholder="••••••••"
                       className={cn(
-                        "h-10 pl-10 pr-10 rounded-xl border-gray-100 bg-white focus:ring-0 focus:border-cartlist-orange transition-all font-medium text-xs",
+                        "h-10 pl-10 pr-10 rounded-xl border-gray-100 bg-white focus:ring-0 focus:border-cartlist-orange transition-all font-medium text-base",
                         passwordForm.formState.errors.password && "border-rose-200 bg-rose-50/30"
                       )}
                       {...passwordForm.register("password")}
@@ -356,7 +356,7 @@ export default function ForgotPassword() {
                       type={showConfirmPassword ? "text" : "password"}
                       placeholder="••••••••"
                       className={cn(
-                        "h-10 pl-10 pr-10 rounded-xl border-gray-100 bg-white focus:ring-0 focus:border-cartlist-orange transition-all font-medium text-xs",
+                        "h-10 pl-10 pr-10 rounded-xl border-gray-100 bg-white focus:ring-0 focus:border-cartlist-orange transition-all font-medium text-base",
                         passwordForm.formState.errors.confirmPassword && "border-rose-200 bg-rose-50/30"
                       )}
                       {...passwordForm.register("confirmPassword")}

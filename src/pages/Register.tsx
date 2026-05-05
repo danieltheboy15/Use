@@ -211,7 +211,7 @@ export default function Register() {
                     placeholder="E.g Adaeze Grains" 
                     {...register("businessName")}
                     className={cn(
-                      "h-10 pl-10 rounded-xl border-gray-100 bg-white focus:ring-0 focus:border-cartlist-orange transition-all font-medium text-xs",
+                      "h-10 pl-10 rounded-xl border-gray-100 bg-white focus:ring-0 focus:border-cartlist-orange transition-all font-medium text-base",
                       errors.businessName && "border-rose-200 bg-rose-50/30"
                     )}
                   />
@@ -229,7 +229,7 @@ export default function Register() {
                     placeholder="E.g Adaeze Obi" 
                     {...register("ownerName")}
                     className={cn(
-                      "h-10 pl-10 rounded-xl border-gray-100 bg-white focus:ring-0 focus:border-cartlist-orange transition-all font-medium text-xs",
+                      "h-10 pl-10 rounded-xl border-gray-100 bg-white focus:ring-0 focus:border-cartlist-orange transition-all font-medium text-base",
                       errors.ownerName && "border-rose-200 bg-rose-50/30"
                     )}
                   />
@@ -250,7 +250,7 @@ export default function Register() {
                     placeholder="Enter email" 
                     {...register("email")}
                     className={cn(
-                      "h-10 pl-10 rounded-xl border-gray-100 bg-white focus:ring-0 focus:border-cartlist-orange transition-all font-medium text-xs",
+                      "h-10 pl-10 rounded-xl border-gray-100 bg-white focus:ring-0 focus:border-cartlist-orange transition-all font-medium text-base",
                       errors.email && "border-rose-200 bg-rose-50/30"
                     )}
                   />
@@ -300,7 +300,7 @@ export default function Register() {
                       placeholder="801..." 
                       {...register("whatsappNumber")}
                       className={cn(
-                        "h-10 rounded-xl border-gray-100 bg-white focus:ring-0 focus:border-cartlist-orange transition-all font-medium text-xs",
+                        "h-10 rounded-xl border-gray-100 bg-white focus:ring-0 focus:border-cartlist-orange transition-all font-medium text-base",
                         errors.whatsappNumber && "border-rose-200 bg-rose-50/30"
                       )}
                     />
@@ -360,7 +360,7 @@ export default function Register() {
                     type={showPassword ? "text" : "password"} 
                     {...register("password")}
                     className={cn(
-                      "h-10 pl-10 pr-10 rounded-xl border-gray-100 bg-white focus:ring-0 focus:border-cartlist-orange transition-all font-medium text-xs",
+                      "h-10 pl-10 pr-10 rounded-xl border-gray-100 bg-white focus:ring-0 focus:border-cartlist-orange transition-all font-medium text-base",
                       errors.password && "border-rose-200 bg-rose-50/30"
                     )}
                   />
@@ -385,7 +385,7 @@ export default function Register() {
                     type={showConfirmPassword ? "text" : "password"} 
                     {...register("confirmPassword")}
                     className={cn(
-                      "h-10 pl-10 pr-10 rounded-xl border-gray-100 bg-white focus:ring-0 focus:border-cartlist-orange transition-all font-medium text-xs",
+                      "h-10 pl-10 pr-10 rounded-xl border-gray-100 bg-white focus:ring-0 focus:border-cartlist-orange transition-all font-medium text-base",
                       errors.confirmPassword && "border-rose-200 bg-rose-50/30"
                     )}
                   />
