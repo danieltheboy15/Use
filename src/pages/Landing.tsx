@@ -238,6 +238,15 @@ export default function Landing() {
   const { user } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 20);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   const faqs = [
     {
@@ -274,7 +283,7 @@ export default function Landing() {
   return (
     <div className="min-h-screen bg-[#FDF8F3] selection:bg-orange-100 selection:text-cartlist-orange overflow-hidden font-sans flex flex-col">
       {/* Navigation - Ultra Compact */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-[#FDF8F3]/60 backdrop-blur-md border-b border-black/5">
+      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? 'md:bg-white bg-[#FDF8F3]/80 backdrop-blur-lg shadow-sm' : 'bg-[#FDF8F3]/60 backdrop-blur-md'} border-b border-black/5`}>
         <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
           {/* Mobile Logo */}
           <div className="md:hidden flex-1">
