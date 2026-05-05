@@ -49,28 +49,6 @@ export const ContactSuccessModal: React.FC<ContactSuccessModalProps> = ({
                   <Send className="w-8 h-8 text-white translate-x-0.5 -translate-y-0.5" />
                 </div>
               </motion.div>
-              
-              <motion.div
-                animate={{ 
-                  scale: [1, 1.2, 1],
-                  rotate: [0, 10, -10, 0]
-                }}
-                transition={{ duration: 3, repeat: Infinity }}
-                className="absolute top-0 right-[35%]"
-              >
-                <Sparkles className="w-8 h-8 text-cartlist-orange fill-cartlist-orange opacity-40" />
-              </motion.div>
-
-              <motion.div
-                animate={{ 
-                  y: [0, -10, 0],
-                }}
-                transition={{ duration: 2, repeat: Infinity }}
-                className="absolute top-10 left-[35%]"
-              >
-                <PartyPopper className="w-6 h-6 text-cartlist-orange opacity-60" />
-              </motion.div>
-            </div>
 
             <motion.div
               initial={{ opacity: 0, y: 10 }}
