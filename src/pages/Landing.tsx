@@ -125,21 +125,17 @@ const IndividualCard: React.FC<{ img: string; scrollX: any; offset: number; card
   });
 
   const y = useTransform(relativeX, [-1.5, 0, 1.5], [80, 0, 80]);
-  const scale = useTransform(relativeX, [-1, 0, 1], [0.75, 1, 0.75]);
   const rotateY = useTransform(relativeX, [-1, 0, 1], [40, 0, -40]);
   const rotateZ = useTransform(relativeX, [-1, 0, 1], [-5, 0, 5]);
   const opacity = useTransform(relativeX, [-2, -1.5, 0, 1.5, 2], [0, 1, 1, 1, 0]);
-  const z = useTransform(relativeX, [-1, 0, 1], [-200, 0, -200]);
 
   return (
     <motion.div
       style={{ 
         y, 
-        scale, 
         rotateY, 
         rotateZ, 
         opacity,
-        z,
         transformStyle: "preserve-3d",
       }}
       className="w-[180px] h-[260px] md:w-[240px] md:h-[360px] rounded-[32px] md:rounded-[48px] overflow-hidden shadow-[0_40px_80px_rgba(0,0,0,0.2)] shrink-0 border-4 border-white/20 bg-gray-900"
@@ -266,26 +262,22 @@ export default function Landing() {
       {/* Navigation - Ultra Compact */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-[#FDF8F3]/60 backdrop-blur-md border-b border-black/5">
         <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
-          {/* Left Side: Desktop Links | Mobile: Logo */}
-          <div className="flex items-center gap-6 flex-1">
-            <div className="md:hidden">
-              <Logo className="scale-90" />
-            </div>
-            <div className="hidden md:flex items-center gap-6">
+          {/* Mobile Logo */}
+          <div className="md:hidden flex-1">
+            <Logo className="scale-90" />
+          </div>
+
+          {/* Desktop: Grouped and Centered */}
+          <div className="hidden md:flex flex-1 justify-center items-center gap-12 lg:gap-20">
+            <div className="flex items-center gap-8 lg:gap-12">
               {navLinks.map((link) => (
                 <NavLink key={link.label} to={link.to}>{link.label}</NavLink>
               ))}
             </div>
-          </div>
-          
-          {/* Center: Desktop Logo */}
-          <div className="hidden md:flex flex-1 justify-center">
+            
             <Logo />
-          </div>
-          
-          {/* Right Side: Desktop Auth | Mobile Menu Trigger */}
-          <div className="flex items-center gap-5 flex-1 justify-end">
-            <div className="hidden md:flex items-center gap-5">
+            
+            <div className="flex items-center gap-6 lg:gap-12">
               <Link to="/login" className="text-[13px] font-normal text-cartlist-orange hover:text-orange-600 transition-colors font-sans">
                 Login
               </Link>
@@ -295,11 +287,13 @@ export default function Landing() {
                 </Button>
               </Link>
             </div>
-            
-            {/* Stylish Mobile Hamburger */}
+          </div>
+          
+          {/* Mobile Menu Trigger & Right side spacer for desktop balance */}
+          <div className="flex items-center justify-end md:flex-1 md:hidden">
             <button 
               onClick={() => setIsMenuOpen(true)}
-              className="md:hidden group p-2 relative w-10 h-10 flex flex-col justify-center items-center rounded-full hover:bg-black/[0.03] transition-all active:scale-90"
+              className="group p-2 relative w-10 h-10 flex flex-col justify-center items-center rounded-full hover:bg-black/[0.03] transition-all active:scale-90"
             >
               <div className="flex flex-col gap-1.5 items-end">
                 <motion.span 
@@ -410,7 +404,7 @@ export default function Landing() {
             className="w-full"
           >
             {/* Extremely compact heading */}
-            <h1 className="text-[48px] md:text-[64px] lg:text-[76px] font-black tracking-[-0.05em] leading-[1.1] text-[#1A1A1A] mb-4 flex flex-col items-center font-heading">
+            <h1 className="text-[48px] md:text-[64px] lg:text-[76px] font-black tracking-[-0.05em] leading-[0.85] text-[#1A1A1A] mb-4 flex flex-col items-center font-heading">
               <span>Every order</span>
               <span className="flex items-center gap-2">
                 in <span className="text-cartlist-orange">check</span>
@@ -418,11 +412,9 @@ export default function Landing() {
             </h1>
 
             {/* Arc-scrolling Gallery */}
-            <div className="-mt-16 md:-mt-32">
-              <CurvedHeroGallery />
-            </div>
+            <CurvedHeroGallery />
 
-            <div className="max-w-xl mx-auto flex flex-col items-center gap-3 px-4 -mt-12 md:-mt-24 relative z-20">
+            <div className="max-w-xl mx-auto flex flex-col items-center gap-3 px-4">
               <p className="text-[14px] md:text-[15px] text-gray-500 font-medium leading-[1.4] max-w-sm mx-auto">
                 Track your stockpile orders, stay organized, and manage everything in one place.
               </p>
