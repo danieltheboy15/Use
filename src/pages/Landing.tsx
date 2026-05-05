@@ -222,6 +222,39 @@ const FAQItem: React.FC<{ question: string; answer: string; isOpen: boolean; onC
 
 export default function Landing() {
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
+  const [introPhase, setIntroPhase] = useState<'none' | 'initial' | 'stretching' | 'coloring' | 'falling' | 'done'>('none');
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    const checkDesktop = () => {
+      const desktop = window.innerWidth >= 1024;
+      setIsDesktop(desktop);
+      if (desktop && introPhase === 'none') {
+        setIntroPhase('initial');
+      } else if (!desktop) {
+        setIntroPhase('done');
+      }
+    };
+
+    checkDesktop();
+    window.addEventListener('resize', checkDesktop);
+
+    if (window.innerWidth >= 1024) {
+      const runSequence = async () => {
+        await new Promise(r => setTimeout(r, 600)); // Short initial pause
+        setIntroPhase('stretching');
+        await new Promise(r => setTimeout(r, 1000));
+        setIntroPhase('coloring');
+        await new Promise(r => setTimeout(r, 1000));
+        setIntroPhase('falling');
+        await new Promise(r => setTimeout(r, 1000));
+        setIntroPhase('done');
+      };
+      runSequence();
+    }
+
+    return () => window.removeEventListener('resize', checkDesktop);
+  }, []);
 
   const faqs = [
     {
@@ -255,12 +288,51 @@ export default function Landing() {
       <Header />
 
       {/* Hero Section - Very Compact */}
-      <section className="relative pt-24 pb-12 flex flex-col items-center justify-center">
-        <div className="w-full relative z-10 text-center flex flex-col items-center">
+      <section className="relative pt-24 pb-12 flex flex-col items-center justify-center overflow-hidden">
+        {/* Desktop Intro Animation Overlay */}
+        <AnimatePresence>
+          {isDesktop && (introPhase === 'initial' || introPhase === 'stretching' || introPhase === 'coloring') && (
+            <motion.div
+              key="intro-overlay"
+              initial={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.5 }}
+              className="fixed inset-0 z-[100] flex items-start justify-center bg-[#FDF8F3] overflow-hidden pt-[71px]"
+            >
+              <motion.h1
+                initial={{ color: "#F07E48", scaleY: 1, y: -100, opacity: 0 }}
+                animate={{ 
+                  y: 0,
+                  opacity: 1,
+                  scaleY: (introPhase === 'stretching' || introPhase === 'coloring') ? 2.6 : 1,
+                  color: introPhase === 'coloring' ? "#F2F3F3" : "#F07E48",
+                }}
+                style={{ originY: 0 }}
+                transition={{ 
+                  y: { duration: 0.8, ease: [0.16, 1, 0.3, 1] },
+                  scaleY: { duration: 0.8, ease: [0.33, 1, 0.68, 1] },
+                  color: { duration: 0.8 }
+                }}
+                className="text-[clamp(100px,15vw,280px)] font-black tracking-tighter font-heading leading-none whitespace-nowrap text-center px-6"
+              >
+                CARTLIST
+              </motion.h1>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <div className="w-full relative z-10 text-center flex flex-col items-center pt-[15px]">
           <motion.div
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5 }}
+            initial={isDesktop ? { opacity: 0, y: -100 } : { opacity: 0, scale: 0.98 }}
+            animate={(isDesktop && (introPhase === 'falling' || introPhase === 'done')) || !isDesktop 
+              ? { opacity: 1, y: 0, scale: 1 } 
+              : { opacity: 0, y: -100 }
+            }
+            transition={{ 
+              duration: 1.2, 
+              ease: [0.16, 1, 0.3, 1],
+              opacity: { duration: 0.4 }
+            }}
             className="w-full"
           >
             {/* Extremely compact heading */}
