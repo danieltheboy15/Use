@@ -612,7 +612,7 @@ app.post("/api/webhooks/whatsapp", async (req, res) => {
 
         if (stockpile) {
           console.log(`[Webhook] Proceeding with stockpile: ${stockpile._id} (Status: ${stockpile.status})`);
-          const vendor = await Vendor.findById(stockpile.vendorId);
+          const vendor = await User.findById(stockpile.vendorId);
           
           if (vendor) {
             console.log(`[Webhook] Matching vendor found: ${vendor.businessName}`);
@@ -686,7 +686,7 @@ const authenticate = async (req: any, res: any, next: any) => {
     req.userId = decoded.userId;
     
     // Update last active in background
-    Vendor.findByIdAndUpdate(decoded.userId, { lastActiveAt: new Date() }).exec().catch(err => console.error("Update lastActive error:", err));
+    User.findByIdAndUpdate(decoded.userId, { lastActiveAt: new Date() }).exec().catch(err => console.error("Update lastActive error:", err));
     
     next();
   } catch (error) {
@@ -698,18 +698,14 @@ const authenticate = async (req: any, res: any, next: any) => {
 // MongoDB Connection
 if (MONGODB_URI) {
   mongoose.connect(MONGODB_URI)
-    .then(async () => {
-      console.log("Connected to MongoDB Atlas");
-      // Run migration
-      await migrateUsersToVendors();
-    })
+    .then(() => console.log("Connected to MongoDB Atlas"))
     .catch(err => console.error("MongoDB connection error:", err));
 } else {
   console.warn("MONGODB_URI not found in environment variables. Database features will not work.");
 }
 
-// Vendor Schema (previously User)
-const vendorSchema = new mongoose.Schema({
+// User Schema
+const userSchema = new mongoose.Schema({
   businessName: { type: String },
   ownerName: { type: String },
   firstName: { type: String },
@@ -721,7 +717,7 @@ const vendorSchema = new mongoose.Schema({
   whatsappNumber: { type: String },
   password: { type: String },
   gender: { type: String },
-  profilePicture: { type: String, default: "https://raw.githubusercontent.com/DannyYo696/svillage/29b4c24e6ca88b3ecf3856f30fceb3f29eef40bf/profile%20picture.webp" },
+  profilePicture: { type: String, default: "https://raw.githubusercontent.com/DannyYo696/svillage/29b4c24e6ca88b3ecf3856f30fceb3f29eef40bf/profile%20picture.webp" }, // Custom default avatar
   businessCategory: { type: String },
   language: { type: String, default: "English" },
   timezone: { type: String, default: "+1 GMT" },
@@ -764,42 +760,11 @@ const vendorSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-const Vendor = mongoose.model("Vendor", vendorSchema, "vendors");
-
-// Migration: Migrate users from 'users' collection to 'vendors'
-const migrateUsersToVendors = async () => {
-  try {
-    const usersCollection = mongoose.connection.db.collection("users");
-    const users = await usersCollection.find({}).toArray();
-    
-    if (users.length > 0) {
-      console.log(`[Migration] Found ${users.length} users to migrate to vendors collection...`);
-      let migratedCount = 0;
-      
-      for (const userData of users) {
-        // Check if already exists in vendors by email
-        const exists = await Vendor.findOne({ email: userData.email });
-        if (!exists) {
-          // Use original _id to maintain relationships
-          await Vendor.create(userData);
-          migratedCount++;
-        }
-      }
-      
-      console.log(`[Migration] Successfully migrated ${migratedCount} new records.`);
-      // We don't delete immediately for safety, but the user requested migration.
-      // After migration, the system will only use 'vendors'.
-    } else {
-      console.log("[Migration] No users found in 'users' collection to migrate.");
-    }
-  } catch (err) {
-    console.error("[Migration] Error during user-to-vendor migration:", err);
-  }
-};
+const User = mongoose.model("User", userSchema);
 
 // Stockpile Schema
 const stockpileSchema = new mongoose.Schema({
-  vendorId: { type: mongoose.Schema.Types.ObjectId, ref: "Vendor", required: true },
+  vendorId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   customerName: { type: String, required: true },
   customerPhone: { type: String, required: true },
   customerEmail: { type: String },
@@ -823,7 +788,7 @@ const Stockpile = mongoose.model("Stockpile", stockpileSchema);
 
 // Notification Schema
 const notificationSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "Vendor", required: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   title: { type: String, required: true },
   message: { type: String, required: true },
   type: { type: String, enum: ["info", "warning", "urgent", "success"], default: "info" },
@@ -845,7 +810,7 @@ const Waitlist = mongoose.model("Waitlist", waitlistSchema);
 // Message Log Schema (for WhatsApp tracking)
 const messageLogSchema = new mongoose.Schema({
   stockpileId: { type: mongoose.Schema.Types.ObjectId, ref: "Stockpile" },
-  vendorId: { type: mongoose.Schema.Types.ObjectId, ref: "Vendor" },
+  vendorId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   recipientPhone: { type: String, required: true },
   templateName: { type: String, required: true },
   status: { type: String, enum: ["sent", "delivered", "failed", "read"], default: "sent" },
@@ -858,7 +823,7 @@ const MessageLog = mongoose.model("MessageLog", messageLogSchema);
 
 // Admin Log Schema
 const adminLogSchema = new mongoose.Schema({
-  adminId: { type: mongoose.Schema.Types.ObjectId, ref: "Vendor", required: true },
+  adminId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   action: { type: String, required: true },
   targetType: { type: String, enum: ["user", "stockpile", "system", "message"] },
   targetId: { type: mongoose.Schema.Types.ObjectId },
@@ -870,7 +835,7 @@ const AdminLog = mongoose.model("AdminLog", adminLogSchema);
 
 // Customer Schema
 const customerSchema = new mongoose.Schema({
-  vendorId: { type: mongoose.Schema.Types.ObjectId, ref: "Vendor", required: true },
+  vendorId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   name: { type: String, required: true },
   phone: { type: String, required: true },
   email: { type: String },
@@ -888,7 +853,7 @@ app.get("/api/public/stockpiles/:id", async (req, res) => {
     const stockpile = await Stockpile.findById(req.params.id);
     if (!stockpile) return res.status(404).json({ message: "Stockpile not found" });
 
-    const vendor = await Vendor.findById(stockpile.vendorId).select("businessName ownerName whatsappNumber profilePicture notifications enableLateFees lateFeeAmount currency");
+    const vendor = await User.findById(stockpile.vendorId).select("businessName ownerName whatsappNumber profilePicture notifications enableLateFees lateFeeAmount currency");
     if (!vendor) return res.status(404).json({ message: "Vendor not found" });
 
     // Calculate late fee if enabled and deadline passed
@@ -1032,7 +997,7 @@ app.post("/api/stockpiles/:id/remind", authenticate, async (req: any, res) => {
     const stockpile = await Stockpile.findOne({ _id: req.params.id, vendorId, isDeleted: { $ne: true } });
     if (!stockpile) return res.status(404).json({ message: "Stockpile not found" });
 
-    const vendor = await Vendor.findById(vendorId);
+    const vendor = await User.findById(vendorId);
     if (!vendor) return res.status(404).json({ message: "Vendor not found" });
 
     const success = await sendStockpileReminderNotification(vendor, stockpile);
@@ -1108,12 +1073,12 @@ app.get("/api/auth/google/callback", async (req, res) => {
 
     const googleUser = googleUserResponse.data;
 
-    // Find or create vendor
-    let vendor = await Vendor.findOne({ email: googleUser.email });
+    // Find or create user
+    let user = await User.findOne({ email: googleUser.email });
 
-    if (!vendor) {
-      // Create new vendor
-      vendor = new Vendor({
+    if (!user) {
+      // Create new user
+      user = new User({
         email: googleUser.email,
         ownerName: googleUser.name,
         firstName: googleUser.given_name,
@@ -1123,22 +1088,22 @@ app.get("/api/auth/google/callback", async (req, res) => {
         hasSeenWelcome: false,
         profilePicture: googleUser.picture || "https://raw.githubusercontent.com/DannyYo696/svillage/29b4c24e6ca88b3ecf3856f30fceb3f29eef40bf/profile%20picture.webp",
       });
-      await vendor.save();
+      await user.save();
       
-      // Send welcome email for new Google vendors
-      await sendWelcomeEmail(vendor.email, vendor.firstName || vendor.ownerName.split(" ")[0]);
-    } else if (!vendor.googleId) {
+      // Send welcome email for new Google users
+      await sendWelcomeEmail(user.email, user.firstName || user.ownerName.split(" ")[0]);
+    } else if (!user.googleId) {
       // Link Google account to existing email account
-      vendor.googleId = googleUser.id;
-      vendor.isEmailVerified = true;
-      if (!vendor.profilePicture || vendor.profilePicture.includes("profile%20picture.webp")) {
-        vendor.profilePicture = googleUser.picture;
+      user.googleId = googleUser.id;
+      user.isEmailVerified = true;
+      if (!user.profilePicture || user.profilePicture.includes("profile%20picture.webp")) {
+        user.profilePicture = googleUser.picture;
       }
-      await vendor.save();
+      await user.save();
     }
 
     // Generate JWT
-    const token = jwt.sign({ userId: vendor._id }, JWT_SECRET, { expiresIn: "30d" });
+    const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: "30d" });
 
     // Set cookie
     res.cookie("token", token, {
@@ -1159,14 +1124,14 @@ app.get("/api/auth/google/callback", async (req, res) => {
                 type: 'OAUTH_AUTH_SUCCESS', 
                 token: '${token}',
                 user: ${JSON.stringify({
-                  id: vendor._id,
-                  businessName: vendor.businessName,
-                  ownerName: vendor.ownerName,
-                  email: vendor.email,
-                  profilePicture: vendor.profilePicture,
-                  hasSeenWelcome: vendor.hasSeenWelcome,
-                  googleId: vendor.googleId,
-                  role: vendor.role
+                  id: user._id,
+                  businessName: user.businessName,
+                  ownerName: user.ownerName,
+                  email: user.email,
+                  profilePicture: user.profilePicture,
+                  hasSeenWelcome: user.hasSeenWelcome,
+                  googleId: user.googleId,
+                  role: user.role
                 })}
               }, '*');
               window.close();
@@ -1188,9 +1153,9 @@ app.get("/api/auth/google/callback", async (req, res) => {
 // Dashboard Data Route
 app.get("/api/user/profile", authenticate, async (req: any, res) => {
   try {
-    const vendor = await Vendor.findById(req.userId).select("-password");
-    if (!vendor) return res.status(404).json({ message: "Vendor not found" });
-    res.json(vendor);
+    const user = await User.findById(req.userId).select("-password");
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json(user);
   } catch (error) {
     res.status(500).json({ message: "Error fetching profile" });
   }
@@ -1199,20 +1164,20 @@ app.get("/api/user/profile", authenticate, async (req: any, res) => {
 app.patch("/api/user/profile", authenticate, async (req: any, res) => {
   try {
     const updates = req.body;
-    console.log("Updating profile for vendor:", req.userId, "with updates:", JSON.stringify(updates));
+    console.log("Updating profile for user:", req.userId, "with updates:", JSON.stringify(updates));
     // Don't allow password updates here
     delete updates.password;
     
     // Explicitly check for late fee fields in the request body
-    const vendor = await Vendor.findByIdAndUpdate(
+    const user = await User.findByIdAndUpdate(
       req.userId, 
       { $set: updates }, 
       { new: true, runValidators: true }
     ).select("-password");
     
-    if (!vendor) return res.status(404).json({ message: "Vendor not found" });
-    console.log("Vendor updated successfully:", vendor._id);
-    res.json(vendor);
+    if (!user) return res.status(404).json({ message: "User not found" });
+    console.log("User updated successfully:", user._id);
+    res.json(user);
   } catch (error) {
     console.error("Error updating profile:", error);
     res.status(500).json({ message: "Error updating profile" });
@@ -1222,15 +1187,15 @@ app.patch("/api/user/profile", authenticate, async (req: any, res) => {
 app.post("/api/user/change-password", authenticate, async (req: any, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
-    const vendor = await Vendor.findById(req.userId);
-    if (!vendor) return res.status(404).json({ message: "Vendor not found" });
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-    const isMatch = await bcrypt.compare(currentPassword, vendor.password);
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
     if (!isMatch) return res.status(400).json({ message: "Incorrect current password" });
 
     const salt = await bcrypt.genSalt(10);
-    vendor.password = await bcrypt.hash(newPassword, salt);
-    await vendor.save();
+    user.password = await bcrypt.hash(newPassword, salt);
+    await user.save();
 
     res.json({ message: "Password updated successfully" });
   } catch (error) {
@@ -1746,7 +1711,7 @@ app.patch("/api/stockpiles/:id", authenticate, async (req: any, res) => {
 
     if (!stockpile) return res.status(404).json({ message: "Stockpile not found" });
 
-    const vendor = await Vendor.findById(vendorId);
+    const vendor = await User.findById(vendorId);
     if (vendor) {
       // Send WhatsApp notification if items were appended
       if (appendItems && items && items.length > 0) {
@@ -1786,7 +1751,7 @@ app.patch("/api/stockpiles/:id/status", authenticate, async (req: any, res) => {
 
     // Send closed notification if status changed to closed
     if (status === "closed") {
-      const vendor = await Vendor.findById(vendorId);
+      const vendor = await User.findById(vendorId);
       if (vendor) {
         await sendStockpileClosedNotification(vendor, stockpile);
       }
@@ -1811,7 +1776,7 @@ app.patch("/api/stockpiles/:id/toggle-delivery", authenticate, async (req: any, 
     await stockpile.save();
 
     if (statusChangedToClosed) {
-      const vendor = await Vendor.findById(vendorId);
+      const vendor = await User.findById(vendorId);
       if (vendor) {
         await sendStockpileClosedNotification(vendor, stockpile);
       }
@@ -1839,7 +1804,7 @@ app.patch("/api/stockpiles/bulk-status", authenticate, async (req: any, res) => 
     );
 
     if (status === "closed") {
-      const vendor = await Vendor.findById(vendorId);
+      const vendor = await User.findById(vendorId);
       if (vendor) {
         const stockpiles = await Stockpile.find({ _id: { $in: ids }, vendorId, status: "closed" });
         for (const s of stockpiles) {
@@ -1935,7 +1900,7 @@ app.post("/api/stockpile/log", authenticate, async (req: any, res) => {
     const { customerName, customerPhone, customerEmail, endDate, deliveryPaid, deliveryDue, items, totalAmount } = req.body;
     
     // Get vendor info for WhatsApp message
-    const vendor = await Vendor.findById(vendorId);
+    const vendor = await User.findById(vendorId);
     if (!vendor) return res.status(404).json({ message: "Vendor not found" });
 
     // Check for an active stockpile for this customer
@@ -2010,13 +1975,13 @@ app.post("/api/stockpile/log", authenticate, async (req: any, res) => {
 
 const isAdmin = async (req: any, res: any, next: any) => {
   try {
-    const vendor = await Vendor.findById(req.userId);
-    if (!vendor) {
-      console.error("isAdmin: Vendor not found", req.userId);
-      return res.status(403).json({ message: "Forbidden: Vendor not found" });
+    const user = await User.findById(req.userId);
+    if (!user) {
+      console.error("isAdmin: User not found", req.userId);
+      return res.status(403).json({ message: "Forbidden: User not found" });
     }
-    if (vendor.role !== "admin") {
-      console.error("isAdmin: Vendor is not admin", vendor.email, vendor.role);
+    if (user.role !== "admin") {
+      console.error("isAdmin: User is not admin", user.email, user.role);
       return res.status(403).json({ message: "Forbidden: Admin access required" });
     }
     next();
@@ -2044,7 +2009,7 @@ const logAdminAction = async (adminId: string, action: string, targetType: strin
 // Admin Dashboard Overview
 app.get("/api/admin/stats", authenticate, isAdmin, async (req, res) => {
   try {
-    const totalVendors = await Vendor.countDocuments({ role: { $ne: "admin" } });
+    const totalVendors = await User.countDocuments({ role: { $ne: "admin" } });
     const totalCustomers = await Customer.countDocuments();
     const activeStockpiles = await Stockpile.countDocuments({ status: "active", isDeleted: { $ne: true } });
     const closedStockpiles = await Stockpile.countDocuments({ status: "closed", isDeleted: { $ne: true } });
@@ -2070,7 +2035,7 @@ app.get("/api/admin/stats", authenticate, isAdmin, async (req, res) => {
     // Current metrics (already fetched above)
     
     // Previous metrics (for percentage calculation)
-    const vendorsYesterdayTotal = await Vendor.countDocuments({ role: { $ne: "admin" }, createdAt: { $lt: startOfToday } });
+    const vendorsYesterdayTotal = await User.countDocuments({ role: { $ne: "admin" }, createdAt: { $lt: startOfToday } });
     const customersYesterdayTotal = await Customer.countDocuments({ createdAt: { $lt: startOfToday } });
     const activeStockpilesYesterdayTotal = await Stockpile.countDocuments({ status: "active", isDeleted: { $ne: true }, createdAt: { $lt: startOfToday } });
 
@@ -2079,7 +2044,7 @@ app.get("/api/admin/stats", authenticate, isAdmin, async (req, res) => {
       return parseFloat(((current - previous) / previous * 100).toFixed(1));
     };
 
-    const vendorsToday = await Vendor.countDocuments({ role: { $ne: "admin" }, createdAt: { $gte: startOfToday } });
+    const vendorsToday = await User.countDocuments({ role: { $ne: "admin" }, createdAt: { $gte: startOfToday } });
     const customersToday = await Customer.countDocuments({ createdAt: { $gte: startOfToday } });
     const stockpilesToday = await Stockpile.countDocuments({ createdAt: { $gte: startOfToday }, isDeleted: { $ne: true } });
     const completedStockpilesToday = await Stockpile.countDocuments({ 
@@ -2112,7 +2077,7 @@ app.get("/api/admin/stats", authenticate, isAdmin, async (req, res) => {
       { $sort: { totalValue: -1 } },
       { $limit: 5 },
       { $lookup: {
-          from: "vendors",
+          from: "users",
           localField: "_id",
           foreignField: "_id",
           as: "vendor"
@@ -2214,26 +2179,26 @@ app.get("/api/admin/users", authenticate, isAdmin, async (req, res) => {
       query.status = status;
     }
 
-    const vendors = await Vendor.find(query).sort({ lastActiveAt: -1 });
+    const users = await User.find(query).sort({ lastActiveAt: -1 });
     
-    // Add activity data for each vendor
-    const vendorsWithStats = await Promise.all(vendors.map(async (v) => {
-      const stockpileCount = await Stockpile.countDocuments({ vendorId: v._id, isDeleted: { $ne: true } });
+    // Add activity data for each user
+    const usersWithStats = await Promise.all(users.map(async (u) => {
+      const stockpileCount = await Stockpile.countDocuments({ vendorId: u._id, isDeleted: { $ne: true } });
       const totalVolume = await Stockpile.aggregate([
-        { $match: { vendorId: v._id, isDeleted: { $ne: true } } },
+        { $match: { vendorId: u._id, isDeleted: { $ne: true } } },
         { $group: { _id: null, total: { $sum: "$totalAmount" } } }
       ]);
       
       return {
-        ...v.toObject(),
+        ...u.toObject(),
         stockpileCount,
         totalVolume: totalVolume[0]?.total || 0
       };
     }));
 
-    res.json(vendorsWithStats);
+    res.json(usersWithStats);
   } catch (err) {
-    res.status(500).json({ message: "Error fetching vendors" });
+    res.status(500).json({ message: "Error fetching users" });
   }
 });
 
@@ -2253,13 +2218,13 @@ app.get("/api/admin/customers", authenticate, isAdmin, async (req, res) => {
 app.post("/api/admin/users/:id/status", authenticate, isAdmin, async (req: any, res) => {
   try {
     const { status } = req.body;
-    const vendor = await Vendor.findByIdAndUpdate(req.params.id, { status }, { new: true });
-    if (!vendor) return res.status(404).json({ message: "Vendor not found" });
+    const user = await User.findByIdAndUpdate(req.params.id, { status }, { new: true });
+    if (!user) return res.status(404).json({ message: "User not found" });
     
-    await logAdminAction(req.userId, `UPDATE_STATUS_${status.toUpperCase()}`, "user", vendor._id.toString(), `Status changed to ${status}`);
-    res.json(vendor);
+    await logAdminAction(req.userId, `UPDATE_STATUS_${status.toUpperCase()}`, "user", user._id.toString(), `Status changed to ${status}`);
+    res.json(user);
   } catch (err) {
-    res.status(500).json({ message: "Error updating vendor status" });
+    res.status(500).json({ message: "Error updating user status" });
   }
 });
 
@@ -2363,7 +2328,7 @@ app.get("/api/admin/audit-logs", authenticate, isAdmin, async (req, res) => {
 
 app.get("/api/admin/check-setup", async (req, res) => {
   try {
-    const adminExists = await Vendor.findOne({ role: "admin" });
+    const adminExists = await User.findOne({ role: "admin" });
     res.json({ needsSetup: !adminExists });
   } catch (err) {
     res.status(500).json({ message: "Internal server error" });
@@ -2374,11 +2339,11 @@ app.get("/api/admin/check-setup", async (req, res) => {
 app.post("/api/admin/create", authenticate, isAdmin, async (req: any, res) => {
   try {
     const { email, password, firstName, lastName } = req.body;
-    const existing = await Vendor.findOne({ email });
-    if (existing) return res.status(400).json({ message: "Vendor already exists" });
+    const existing = await User.findOne({ email });
+    if (existing) return res.status(400).json({ message: "User already exists" });
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const newAdmin = new Vendor({
+    const newAdmin = new User({
       email,
       password: hashedPassword,
       firstName,
@@ -2401,7 +2366,7 @@ app.post("/api/admin/create", authenticate, isAdmin, async (req: any, res) => {
 app.post("/api/admin/setup-initial", async (req, res) => {
   console.log("INITIAL ADMIN SETUP REQUEST RECEIVED");
   try {
-    const adminExists = await Vendor.findOne({ role: "admin" });
+    const adminExists = await User.findOne({ role: "admin" });
     if (adminExists) {
       console.log("Setup blocked: Admin already exists");
       return res.status(403).json({ message: "Blocked: Admins already exist" });
@@ -2414,21 +2379,21 @@ app.post("/api/admin/setup-initial", async (req, res) => {
       return res.status(400).json({ message: "Email and password required" });
     }
 
-    // Check if vendor already exists
-    let vendor = await Vendor.findOne({ email });
+    // Check if user already exists (as a vendor/customer)
+    let user = await User.findOne({ email });
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    if (vendor) {
-      console.log("Existing vendor found, promoting to primary admin");
-      vendor.role = "admin";
-      vendor.password = hashedPassword; // Update password to the new admin one
-      vendor.isEmailVerified = true;
-      vendor.firstName = firstName || vendor.firstName;
-      vendor.lastName = lastName || vendor.lastName;
-      await vendor.save();
+    if (user) {
+      console.log("Existing user found, promoting to primary admin");
+      user.role = "admin";
+      user.password = hashedPassword; // Update password to the new admin one
+      user.isEmailVerified = true;
+      user.firstName = firstName || user.firstName;
+      user.lastName = lastName || user.lastName;
+      await user.save();
     } else {
       console.log("Creating new primary admin identity");
-      vendor = new Vendor({
+      user = new User({
         email,
         password: hashedPassword,
         firstName,
@@ -2438,7 +2403,7 @@ app.post("/api/admin/setup-initial", async (req, res) => {
         whatsappNumber: "0",
         isEmailVerified: true
       });
-      await vendor.save();
+      await user.save();
     }
 
     console.log("Primary admin created/promoted successfully");
@@ -2464,8 +2429,8 @@ app.post("/api/auth/register", async (req, res) => {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    const existingVendor = await Vendor.findOne({ email });
-    if (existingVendor) {
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
       return res.status(400).json({ message: "An account with this email already exists" });
     }
 
@@ -2477,7 +2442,7 @@ app.post("/api/auth/register", async (req, res) => {
     const firstName = nameParts[0] || "";
     const lastName = nameParts.slice(1).join(" ") || "";
 
-    const vendor = new Vendor({
+    const user = new User({
       businessName,
       ownerName,
       firstName,
@@ -2492,21 +2457,21 @@ app.post("/api/auth/register", async (req, res) => {
       verificationToken
     });
 
-    await vendor.save();
+    await user.save();
 
     // Send verification email
     await sendVerificationEmail(email, firstName, verificationToken, req);
 
     res.status(201).json({
-      message: "Vendor registered successfully. Please verify your email.",
+      message: "User registered successfully. Please verify your email.",
       user: {
-        id: vendor._id,
-        businessName: vendor.businessName,
-        ownerName: vendor.ownerName,
-        email: vendor.email,
-        profilePicture: vendor.profilePicture,
-        hasSeenWelcome: vendor.hasSeenWelcome,
-        googleId: vendor.googleId
+        id: user._id,
+        businessName: user.businessName,
+        ownerName: user.ownerName,
+        email: user.email,
+        profilePicture: user.profilePicture,
+        hasSeenWelcome: user.hasSeenWelcome,
+        googleId: user.googleId
       }
     });
   } catch (error) {
@@ -2520,18 +2485,18 @@ app.post("/api/auth/resend-verification", async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ message: "Email is required" });
 
-    const vendor = await Vendor.findOne({ email });
-    if (!vendor) return res.status(404).json({ message: "Vendor not found" });
-    if (vendor.isEmailVerified) return res.status(400).json({ message: "Email is already verified" });
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: "User not found" });
+    if (user.isEmailVerified) return res.status(400).json({ message: "Email is already verified" });
 
     // Generate new token if needed, or reuse existing one
-    if (!vendor.verificationToken) {
-      vendor.verificationToken = crypto.randomBytes(32).toString("hex");
-      await vendor.save();
+    if (!user.verificationToken) {
+      user.verificationToken = crypto.randomBytes(32).toString("hex");
+      await user.save();
     }
 
-    const firstName = vendor.firstName || vendor.ownerName.split(" ")[0];
-    const sent = await sendVerificationEmail(email, firstName, vendor.verificationToken, req);
+    const firstName = user.firstName || user.ownerName.split(" ")[0];
+    const sent = await sendVerificationEmail(email, firstName, user.verificationToken, req);
 
     if (sent) {
       res.json({ message: "Verification email resent successfully" });
@@ -2549,18 +2514,18 @@ app.get("/api/auth/verify-email", async (req, res) => {
     const token = req.query.token as string;
     if (!token) return res.status(400).send("Verification token is missing");
 
-    const vendor = await Vendor.findOne({ verificationToken: token });
-    if (!vendor) return res.status(400).send("Invalid or expired verification token");
+    const user = await User.findOne({ verificationToken: token });
+    if (!user) return res.status(400).send("Invalid or expired verification token");
 
-    vendor.isEmailVerified = true;
-    vendor.verificationToken = undefined;
-    await vendor.save();
+    user.isEmailVerified = true;
+    user.verificationToken = undefined;
+    await (user as any).save();
 
     // Send welcome email after email verification
-    await sendWelcomeEmail(vendor.email, vendor.firstName || vendor.ownerName.split(" ")[0]);
+    await sendWelcomeEmail(user.email, user.firstName || user.ownerName.split(" ")[0]);
 
-    // Log the vendor in automatically
-    const authToken = jwt.sign({ userId: vendor._id }, JWT_SECRET, { expiresIn: "30d" });
+    // Log the user in automatically
+    const authToken = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: "30d" });
     res.cookie("token", authToken, {
       httpOnly: true,
       secure: true,
@@ -2588,26 +2553,26 @@ app.post("/api/auth/login", async (req, res) => {
   try {
     const { email, password, rememberMe } = req.body;
 
-    const vendor = await Vendor.findOne({ email });
-    if (!vendor) {
+    const user = await User.findOne({ email });
+    if (!user) {
       return res.status(400).json({ message: "Invalid email or password" });
     }
 
-    if (!vendor.isEmailVerified) {
+    if (!user.isEmailVerified) {
       return res.status(403).json({ message: "Please verify your email before logging in" });
     }
 
-    if (!vendor.password) {
+    if (!user.password) {
       return res.status(400).json({ message: "This account uses Google Sign-In. Please use the Google button to login." });
     }
 
-    const isPasswordValid = await bcrypt.compare(password, vendor.password);
+    const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       return res.status(400).json({ message: "Invalid email or password" });
     }
 
     const expiresIn = rememberMe ? "30d" : "24h";
-    const token = jwt.sign({ userId: vendor._id }, JWT_SECRET, { expiresIn });
+    const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn });
     
     res.cookie("token", token, {
       httpOnly: true,
@@ -2621,18 +2586,18 @@ app.post("/api/auth/login", async (req, res) => {
       message: "Login successful",
       token, // Send token in body as well
       user: {
-        id: vendor._id,
-        businessName: vendor.businessName,
-        ownerName: vendor.ownerName,
-        firstName: vendor.firstName,
-        lastName: vendor.lastName,
-        email: vendor.email,
-        profilePicture: vendor.profilePicture,
-        hasSeenWelcome: vendor.hasSeenWelcome,
-        googleId: vendor.googleId,
-        whatsappNumber: vendor.whatsappNumber,
-        businessCategory: vendor.businessCategory,
-        role: vendor.role
+        id: user._id,
+        businessName: user.businessName,
+        ownerName: user.ownerName,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        profilePicture: user.profilePicture,
+        hasSeenWelcome: user.hasSeenWelcome,
+        googleId: user.googleId,
+        whatsappNumber: user.whatsappNumber,
+        businessCategory: user.businessCategory,
+        role: user.role
       }
     });
   } catch (error) {
@@ -2643,8 +2608,8 @@ app.post("/api/auth/login", async (req, res) => {
 
 app.patch("/api/auth/profile", authenticate, async (req: any, res: any) => {
   try {
-    const vendor = await Vendor.findById(req.userId);
-    if (!vendor) return res.status(404).json({ message: "Vendor not found" });
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
 
     const allowedUpdates = [
       "businessName", "firstName", "lastName", "ownerName", 
@@ -2654,12 +2619,12 @@ app.patch("/api/auth/profile", authenticate, async (req: any, res: any) => {
 
     Object.keys(req.body).forEach(key => {
       if (allowedUpdates.includes(key)) {
-        (vendor as any)[key] = req.body[key];
+        (user as any)[key] = req.body[key];
       }
     });
 
-    await vendor.save();
-    res.json({ user: vendor });
+    await (user as any).save();
+    res.json({ user });
   } catch (error) {
     console.error("Update profile error:", error);
     res.status(500).json({ message: "Error updating profile" });
@@ -2669,26 +2634,26 @@ app.patch("/api/auth/profile", authenticate, async (req: any, res: any) => {
 app.post("/api/auth/change-password", authenticate, async (req: any, res: any) => {
   try {
     const { currentPassword, newPassword } = req.body;
-    const vendor = await Vendor.findById(req.userId);
-    if (!vendor) return res.status(404).json({ message: "Vendor not found" });
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-    // If vendor registered with Google, they might not have a password
-    if (vendor.googleId && !vendor.password) {
+    // If user registered with Google, they might not have a password
+    if (user.googleId && !user.password) {
       // Allow setting a password for the first time if they came from Google
       const hashedPassword = await bcrypt.hash(newPassword, 10);
-      vendor.password = hashedPassword;
-      await vendor.save();
+      user.password = hashedPassword;
+      await user.save();
       return res.json({ message: "Password set successfully" });
     }
 
-    const isMatch = await bcrypt.compare(currentPassword, vendor.password || "");
+    const isMatch = await bcrypt.compare(currentPassword, user.password || "");
     if (!isMatch) {
       return res.status(400).json({ message: "Incorrect current password" });
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-    vendor.password = hashedPassword;
-    await vendor.save();
+    user.password = hashedPassword;
+    await user.save();
 
     res.json({ message: "Password changed successfully" });
   } catch (error) {
@@ -2699,13 +2664,13 @@ app.post("/api/auth/change-password", authenticate, async (req: any, res: any) =
 
 app.get("/api/auth/me", authenticate, async (req: any, res) => {
   try {
-    const vendor = await Vendor.findById(req.userId).select("-password");
+    const user = await User.findById(req.userId).select("-password");
     
-    if (!vendor) {
-      return res.status(401).json({ message: "Vendor not found" });
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
     }
 
-    res.json({ user: vendor });
+    res.json({ user });
   } catch (error) {
     res.status(401).json({ message: "Invalid token" });
   }
@@ -2719,10 +2684,10 @@ app.post("/api/auth/logout", (req, res) => {
 app.post("/api/auth/forgot-password", async (req, res) => {
   try {
     const { email } = req.body;
-    const vendor = await Vendor.findOne({ email });
+    const user = await User.findOne({ email });
     
-    if (!vendor) {
-      // For security, don't reveal if vendor exists
+    if (!user) {
+      // For security, don't reveal if user exists
       return res.json({ message: "If an account exists with that email, an OTP has been sent." });
     }
 
@@ -2731,12 +2696,12 @@ app.post("/api/auth/forgot-password", async (req, res) => {
     const sixtySecondsAgo = new Date(now.getTime() - 60 * 1000);
 
     // Filter attempts to only keep those from the last 5 minutes
-    vendor.resetPasswordAttempts = (vendor.resetPasswordAttempts || []).filter(
+    user.resetPasswordAttempts = (user.resetPasswordAttempts || []).filter(
       (attempt: Date) => attempt > fiveMinutesAgo
     );
 
     // Check for 60s cooldown
-    const lastAttempt = vendor.resetPasswordAttempts[vendor.resetPasswordAttempts.length - 1];
+    const lastAttempt = user.resetPasswordAttempts[user.resetPasswordAttempts.length - 1];
     if (lastAttempt && lastAttempt > sixtySecondsAgo) {
       const waitTime = Math.ceil((lastAttempt.getTime() + 60000 - now.getTime()) / 1000);
       return res.status(429).json({ 
@@ -2746,8 +2711,8 @@ app.post("/api/auth/forgot-password", async (req, res) => {
     }
 
     // Check for 3 attempts in 5 minutes
-    if (vendor.resetPasswordAttempts.length >= 3) {
-      const firstAttempt = vendor.resetPasswordAttempts[0];
+    if (user.resetPasswordAttempts.length >= 3) {
+      const firstAttempt = user.resetPasswordAttempts[0];
       const waitTime = Math.ceil((firstAttempt.getTime() + 300000 - now.getTime()) / 1000);
       return res.status(429).json({ 
         message: `Too many requests. Please wait ${Math.ceil(waitTime / 60)} minutes before trying again.`,
@@ -2756,12 +2721,12 @@ app.post("/api/auth/forgot-password", async (req, res) => {
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    vendor.resetPasswordOTP = otp;
-    vendor.resetPasswordExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    user.resetPasswordOTP = otp;
+    user.resetPasswordExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
     
     // Add current attempt
-    vendor.resetPasswordAttempts.push(now);
-    await vendor.save();
+    user.resetPasswordAttempts.push(now);
+    await user.save();
 
     const resend = getResend();
     if (resend) {
@@ -2803,13 +2768,13 @@ app.post("/api/auth/forgot-password", async (req, res) => {
 app.post("/api/auth/verify-otp", async (req, res) => {
   try {
     const { email, otp } = req.body;
-    const vendor = await Vendor.findOne({ 
+    const user = await User.findOne({ 
       email, 
       resetPasswordOTP: otp,
       resetPasswordExpires: { $gt: Date.now() }
     });
 
-    if (!vendor) {
+    if (!user) {
       return res.status(400).json({ message: "Invalid or expired OTP" });
     }
 
@@ -2822,21 +2787,21 @@ app.post("/api/auth/verify-otp", async (req, res) => {
 app.post("/api/auth/reset-password", async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body;
-    const vendor = await Vendor.findOne({ 
+    const user = await User.findOne({ 
       email, 
       resetPasswordOTP: otp,
       resetPasswordExpires: { $gt: Date.now() }
     });
 
-    if (!vendor) {
+    if (!user) {
       return res.status(400).json({ message: "Invalid or expired OTP" });
     }
 
     const salt = await bcrypt.genSalt(10);
-    vendor.password = await bcrypt.hash(newPassword, salt);
-    vendor.resetPasswordOTP = undefined;
-    vendor.resetPasswordExpires = undefined;
-    await vendor.save();
+    user.password = await bcrypt.hash(newPassword, salt);
+    user.resetPasswordOTP = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
 
     res.json({ message: "Password reset successfully" });
   } catch (error) {

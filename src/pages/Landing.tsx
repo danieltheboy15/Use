@@ -266,7 +266,7 @@ export default function Landing() {
       <Header />
 
       {/* Hero Section - Very Compact */}
-      <section className="relative pt-24 pb-12 flex flex-col items-center justify-center overflow-hidden bg-white">
+      <section className="relative pt-24 pb-12 flex flex-col items-center justify-center overflow-hidden">
         {/* Universal Intro Animation Overlay */}
         <AnimatePresence>
           {(introPhase === 'initial' || introPhase === 'stretching' || introPhase === 'coloring') && (
@@ -354,6 +354,37 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* Project Showcase Section */}
+      <section className="px-6 flex flex-col items-center py-20 lg:py-32 bg-white relative z-20">
+        <h2 className="text-[20px] md:text-[24px] lg:text-[28px] font-black leading-[1.1] text-[#1A1A1A] max-w-2xl mx-auto text-center mb-12 font-semibold tracking-tight">
+          With Cartlist, we want you to feel less stress in managing your customers heavy stockpile in one place
+        </h2>
+        {[
+          { 
+            img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777936742/Component_9_lhgyen.png",
+            mobileImg: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777990019/Group_40_liwu2r.png"
+          },
+          { 
+            img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777967539/Group_30_rase2l.png",
+            mobileImg: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777990685/Group_41_dpnsv3.png"
+          },
+          { 
+            img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777967656/Group_29_nvtlcp.png",
+            mobileImg: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777990796/Group_42_qzqyed.png"
+          },
+          { 
+            img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777967872/Group_32_nmrbpa.png",
+            mobileImg: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777990891/Group_43_jxw33e.png"
+          },
+          { 
+            img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777967870/Group_33_kwnhof.png",
+            mobileImg: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777990957/Group_44_cbjkh8.png"
+          }
+        ].map((project, i) => (
+          <ProjectCard key={i} project={project} i={i} />
+        ))}
+      </section>
+
       {/* How It Works Section */}
       <section className="bg-[#0A0D14] pt-40 pb-32 px-6 relative overflow-hidden">
         {/* Decorative Swirl Patterns */}
@@ -431,37 +462,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Project Showcase Section */}
-      <section className="px-6 flex flex-col items-center py-20 lg:py-32 bg-white relative z-20">
-        <h2 className="text-[20px] md:text-[24px] lg:text-[28px] font-black leading-[1.1] text-[#1A1A1A] max-w-2xl mx-auto text-center mb-12 font-semibold tracking-tight">
-          With Cartlist, we want you to feel less stress in managing your customers heavy stockpile in one place
-        </h2>
-        {[
-          { 
-            img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777936742/Component_9_lhgyen.png",
-            mobileImg: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777990019/Group_40_liwu2r.png"
-          },
-          { 
-            img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777967539/Group_30_rase2l.png",
-            mobileImg: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777990685/Group_41_dpnsv3.png"
-          },
-          { 
-            img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777967656/Group_29_nvtlcp.png",
-            mobileImg: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777990796/Group_42_qzqyed.png"
-          },
-          { 
-            img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777967872/Group_32_nmrbpa.png",
-            mobileImg: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777990891/Group_43_jxw33e.png"
-          },
-          { 
-            img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777967870/Group_33_kwnhof.png",
-            mobileImg: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777990957/Group_44_cbjkh8.png"
-          }
-        ].map((project, i) => (
-          <ProjectCard key={i} project={project} i={i} />
-        ))}
-      </section>
-
       {/* Pricing Section */}
       <section className="bg-[#0A0D14] pt-32 pb-0 px-6 relative overflow-hidden">
         {/* Background Decorative Accent */}
@@ -488,7 +488,7 @@ export default function Landing() {
               {[
                 {
                   name: "Free Plan",
-                  price: "0",
+                  price: "0 ",
                   features: ["Realtime activity log", "Email alert", "WhatsApp copy", "15 Capped logged customers"],
                   button: "Start free plan"
                 },

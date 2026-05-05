@@ -113,7 +113,7 @@ export default function Contact() {
                 </a>
                 
                 <a 
-                  href="https://wa.me/2348149342429" 
+                  href="https://wa.me/2348149347629" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="flex items-center gap-4 text-gray-900 text-[20px] md:text-[24px] font-bold hover:text-cartlist-orange transition-colors group"
@@ -121,7 +121,7 @@ export default function Contact() {
                   <div className="w-10 h-10 flex items-center justify-center">
                     <MessageCircle className="w-6 h-6 text-gray-700 group-hover:text-cartlist-orange transition-colors" />
                   </div>
-                  <span>+234 814 934 2429</span>
+                  <span>+234 814 934 7629</span>
                 </a>
               </div>
             </div>

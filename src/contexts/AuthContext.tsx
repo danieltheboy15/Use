@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 
-interface Vendor {
+interface User {
   id: string;
   businessName?: string;
   ownerName?: string;
@@ -26,20 +26,19 @@ interface Vendor {
 }
 
 interface AuthContextType {
-  user: Vendor | null;
-  vendor: Vendor | null;
+  user: User | null;
   loading: boolean;
-  login: (userData: Vendor, token?: string) => void;
+  login: (userData: User, token?: string) => void;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
-  updateProfile: (updatedData: Partial<Vendor>) => Promise<boolean>;
+  updateProfile: (updatedData: Partial<User>) => Promise<boolean>;
   fetchWithAuth: (url: string, options?: RequestInit) => Promise<Response>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [vendor, setVendor] = useState<Vendor | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
@@ -63,7 +62,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       clearTimeout(timeoutId);
 
       if (response.status === 401) {
-        setVendor(null);
+        setUser(null);
         localStorage.removeItem("cartlist_token");
       }
 
@@ -80,13 +79,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (response.ok) {
         const data = await response.json();
-        setVendor(data.user);
+        setUser(data.user);
       } else {
-        setVendor(null);
+        setUser(null);
       }
     } catch (error) {
       console.error("Auth check failed:", error);
-      setVendor(null);
+      setUser(null);
     } finally {
       setLoading(false);
     }
@@ -96,8 +95,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     checkAuth();
   }, []);
 
-  const login = (userData: Vendor, token?: string) => {
-    setVendor(userData);
+  const login = (userData: User, token?: string) => {
+    setUser(userData);
     if (token) {
       localStorage.setItem("cartlist_token", token);
     }
@@ -106,14 +105,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     try {
       await fetchWithAuth("/api/auth/logout", { method: "POST" });
-      setVendor(null);
+      setUser(null);
       localStorage.removeItem("cartlist_token");
     } catch (error) {
       console.error("Logout failed:", error);
     }
   };
 
-  const updateProfile = async (updatedData: Partial<Vendor>) => {
+  const updateProfile = async (updatedData: Partial<User>) => {
     try {
       const response = await fetchWithAuth("/api/auth/profile", {
         method: "PATCH",
@@ -123,7 +122,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (response.ok) {
         const data = await response.json();
-        setVendor(data.user);
+        setUser(data.user);
         return true;
       }
       return false;
@@ -134,7 +133,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user: vendor, vendor, loading, login, logout, checkAuth, updateProfile, fetchWithAuth }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, checkAuth, updateProfile, fetchWithAuth }}>
       {children}
     </AuthContext.Provider>
   );
