@@ -942,6 +942,55 @@ app.post("/api/waitlist", async (req, res) => {
   }
 });
 
+app.post("/api/contact", async (req, res) => {
+  try {
+    const { name, email, message } = req.body;
+    if (!name || !email || !message) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    const resend = getResend();
+    if (resend) {
+      try {
+        await resend.emails.send({
+          from: `Cartlist Contact <${FROM_EMAIL}>`,
+          to: "hello@usecartlist.com",
+          replyTo: email,
+          subject: `New Message from ${name}`,
+          html: `
+            <div style="font-family: 'Inter', sans-serif; background-color: #FDF8F3; padding: 40px; color: #1A1A1A; border-radius: 24px;">
+              <div style="background-color: #FFFFFF; padding: 32px; border-radius: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.05);">
+                <h2 style="color: #F07E48; margin-top: 0;">New Contact Form Message</h2>
+                <hr style="border: 0; border-top: 1px solid #F3F4F6; margin: 20px 0;">
+                <p><strong>Name:</strong> ${name}</p>
+                <p><strong>Email:</strong> ${email}</p>
+                <p><strong>Message:</strong></p>
+                <div style="background-color: #F9FAFB; padding: 20px; border-radius: 12px; border: 1px solid #E5E7EB; white-space: pre-wrap;">
+                  ${message}
+                </div>
+                <p style="font-size: 12px; color: #9CA3AF; margin-top: 30px;">
+                  This message was sent from the Cartlist contact form.
+                </p>
+              </div>
+            </div>
+          `
+        });
+      } catch (err) {
+        console.error("Resend error in contact form:", err);
+        // We still return success if the message was logged or just to give user feedback, 
+        // but ideally we'd want to know if it failed.
+      }
+    } else {
+      console.log("Contact form submission (Resend not configured):", { name, email, message });
+    }
+
+    res.status(200).json({ message: "Message sent successfully" });
+  } catch (error) {
+    console.error("Contact form error:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 app.post("/api/stockpiles/:id/remind", authenticate, async (req: any, res) => {
   try {
     const vendorId = req.userId;

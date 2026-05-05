@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import { motion } from "motion/react";
-import { Mail, Phone, Instagram, Facebook, Linkedin, Twitter, Send } from "lucide-react";
+import { Mail, Phone, Instagram, Facebook, Linkedin, Twitter, Send, Loader2 } from "lucide-react";
 import { Header } from "@/components/landing/Header";
 import { Footer } from "@/components/landing/Footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { ContactSuccessModal } from "@/components/landing/ContactSuccessModal";
 
 const SocialIcon = ({ icon: Icon, href = "#" }: { icon: any; href?: string }) => (
   <a 
@@ -22,11 +23,30 @@ export default function Contact() {
     email: "",
     message: ""
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Contact form submitted:", formData);
-    // Add logic for real integration later if needed
+    if (!formData.name || !formData.email || !formData.message) return;
+    
+    setIsSubmitting(true);
+    try {
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData)
+      });
+      
+      if (response.ok) {
+        setShowSuccessModal(true);
+        setFormData({ name: "", email: "", message: "" });
+      }
+    } catch (error) {
+      console.error("Submission error:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -147,9 +167,17 @@ export default function Contact() {
                 <div className="pt-6">
                   <Button 
                     type="submit"
-                    className="w-full py-6 rounded-xl bg-cartlist-orange hover:bg-orange-600 text-white font-bold text-[15px] shadow-lg shadow-orange-500/20"
+                    disabled={isSubmitting}
+                    className="w-full py-6 rounded-xl bg-cartlist-orange hover:bg-orange-600 text-white font-bold text-[15px] shadow-lg shadow-orange-500/20 disabled:opacity-70 disabled:cursor-not-allowed"
                   >
-                    Send message
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      "Send message"
+                    )}
                   </Button>
                 </div>
               </form>
@@ -157,6 +185,11 @@ export default function Contact() {
           </div>
         </div>
       </main>
+
+      <ContactSuccessModal 
+        isOpen={showSuccessModal} 
+        onClose={() => setShowSuccessModal(false)} 
+      />
 
       <Footer />
     </div>
