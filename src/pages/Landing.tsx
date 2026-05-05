@@ -377,17 +377,7 @@ export default function Landing() {
                   ))}
                 </div>
 
-                <div className="mt-auto pt-10">
-                  <div className="h-px bg-gray-100 w-full mb-8" />
-                  <div className="flex flex-col gap-4">
-                    <p className="text-[12px] font-bold text-gray-500 uppercase tracking-[0.2em] font-sans">
-                      Cartlist — Streamline your stockpile
-                    </p>
-                    <p className="text-[10px] font-medium text-gray-400 font-sans">
-                      © 2026 Powered by innovation.
-                    </p>
-                  </div>
-                </div>
+                
               </div>
             </motion.div>
           </>
