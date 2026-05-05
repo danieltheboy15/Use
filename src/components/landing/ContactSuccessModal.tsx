@@ -81,7 +81,7 @@ export const ContactSuccessModal: React.FC<ContactSuccessModalProps> = ({
                 Message Sent!
               </h2>
               <p className="text-lg text-gray-500 mb-8 leading-relaxed max-w-sm mx-auto">
-                Thank you for reaching out! We've received your message and we'll get back to you at <span className="text-cartlist-orange font-bold">hello@usecartlist.com</span> shortly.
+                Thank you for reaching out! We've received your message and we'll get back to you shortly.
               </p>
             </motion.div>
 
@@ -90,16 +90,9 @@ export const ContactSuccessModal: React.FC<ContactSuccessModalProps> = ({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5 }}
             >
-              <Button 
-                onClick={onClose}
-                className="w-full h-16 bg-cartlist-orange hover:bg-orange-600 text-white rounded-2xl text-lg font-bold shadow-xl shadow-orange-500/20 group transition-all hover:scale-[1.02] active:scale-95"
-              >
-                Got it, thanks!
-              </Button>
               
-              <p className="mt-6 text-sm text-gray-400 font-medium tracking-wide uppercase">
-                Expect a response within 24 hours
-              </p>
+              
+              
             </motion.div>
           </motion.div>
         </div>
