@@ -49,13 +49,12 @@ const ProjectCard: React.FC<{ project: { img: string; mobileImg?: string }; i: n
 };
 
 const galleryImages = [
-  "https://res.cloudinary.com/dpsvazol5/image/upload/v1777996740/IMG_8409_30_wa3rjm.png",
   "https://res.cloudinary.com/dpsvazol5/image/upload/v1777991807/IMG_8390_30_e2nqcv.png",
-  "https://res.cloudinary.com/dpsvazol5/image/upload/v1777992608/IMG_8391_30_isdjek.png",
+  "https://res.cloudinary.com/dpsvazol5/image/upload/v1777996740/IMG_8409_30_wa3rjm.png",
   "https://res.cloudinary.com/dpsvazol5/image/upload/v1777992723/IMG_8392_30_odhxde.png",
+  "https://res.cloudinary.com/dpsvazol5/image/upload/v1777993161/IMG_8398_30_j9q5w5.png",
   "https://res.cloudinary.com/dpsvazol5/image/upload/v1777992863/IMG_8394_30_o50sek.png",
   "https://res.cloudinary.com/dpsvazol5/image/upload/v1777993015/IMG_8397_30_zjnzgk.png",
-  "https://res.cloudinary.com/dpsvazol5/image/upload/v1777993161/IMG_8398_30_j9q5w5.png",
 ];
 
 const CurvedHeroGallery = () => {
