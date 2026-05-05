@@ -216,23 +216,10 @@ const FAQItem: React.FC<{ question: string; answer: string; isOpen: boolean; onC
 export default function Landing() {
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
   const [introPhase, setIntroPhase] = useState<'none' | 'initial' | 'stretching' | 'coloring' | 'falling' | 'done'>('none');
-  const [isDesktop, setIsDesktop] = useState(false);
 
   useEffect(() => {
-    const checkDesktop = () => {
-      const desktop = window.innerWidth >= 1024;
-      setIsDesktop(desktop);
-      if (desktop && introPhase === 'none') {
-        setIntroPhase('initial');
-      } else if (!desktop) {
-        setIntroPhase('done');
-      }
-    };
-
-    checkDesktop();
-    window.addEventListener('resize', checkDesktop);
-
-    if (window.innerWidth >= 1024) {
+    if (introPhase === 'none') {
+      setIntroPhase('initial');
       const runSequence = async () => {
         await new Promise(r => setTimeout(r, 600)); // Short initial pause
         setIntroPhase('stretching');
@@ -245,8 +232,6 @@ export default function Landing() {
       };
       runSequence();
     }
-
-    return () => window.removeEventListener('resize', checkDesktop);
   }, []);
 
   const faqs = [
@@ -282,9 +267,9 @@ export default function Landing() {
 
       {/* Hero Section - Very Compact */}
       <section className="relative pt-24 pb-12 flex flex-col items-center justify-center overflow-hidden">
-        {/* Desktop Intro Animation Overlay */}
+        {/* Universal Intro Animation Overlay */}
         <AnimatePresence>
-          {isDesktop && (introPhase === 'initial' || introPhase === 'stretching' || introPhase === 'coloring') && (
+          {(introPhase === 'initial' || introPhase === 'stretching' || introPhase === 'coloring') && (
             <motion.div
               key="intro-overlay"
               initial={{ opacity: 1 }}
@@ -306,7 +291,7 @@ export default function Landing() {
                   scaleY: { duration: 0.8, ease: [0.33, 1, 0.68, 1] },
                   color: { duration: 0.8 }
                 }}
-                className="text-[clamp(100px,15vw,280px)] font-black tracking-tighter font-heading leading-none whitespace-nowrap text-center px-6"
+                className="text-[clamp(64px,15vw,280px)] font-black tracking-tighter font-heading leading-none whitespace-nowrap text-center px-4"
               >
                 CARTLIST
               </motion.h1>
@@ -318,7 +303,7 @@ export default function Landing() {
           {/* Permanent Background Stretched Text */}
           <div className="absolute inset-0 flex items-start justify-center pointer-events-none select-none overflow-hidden pt-[71px] -z-10">
             <h1 
-              className="text-[clamp(100px,15vw,280px)] font-black tracking-tighter font-heading leading-none whitespace-nowrap text-[#F2F3F3]"
+              className="text-[clamp(64px,15vw,280px)] font-black tracking-tighter font-heading leading-none whitespace-nowrap text-[#F2F3F3] px-4"
               style={{ transform: 'scaleY(2.6)', transformOrigin: 'top' }}
             >
               CARTLIST
@@ -326,8 +311,8 @@ export default function Landing() {
           </div>
 
           <motion.div
-            initial={isDesktop ? { opacity: 0, y: -100 } : { opacity: 0, scale: 0.98 }}
-            animate={(isDesktop && (introPhase === 'falling' || introPhase === 'done')) || !isDesktop 
+            initial={{ opacity: 0, y: -100 }}
+            animate={(introPhase === 'falling' || introPhase === 'done')
               ? { opacity: 1, y: 0, scale: 1 } 
               : { opacity: 0, y: -100 }
             }
