@@ -77,10 +77,10 @@ const CurvedHeroGallery = () => {
   const gap = 32;
   const totalItemsWidth = galleryImages.length * (cardWidth + gap);
   
-  const items = [...galleryImages, ...galleryImages, ...galleryImages];
+  const items = [...galleryImages, ...galleryImages, ...galleryImages, ...galleryImages];
 
   useAnimationFrame((_, delta) => {
-    const speed = 40; 
+    const speed = 65; 
     let nextX = scrollX.get() - (delta / 1000) * speed;
     if (nextX <= -totalItemsWidth) {
       nextX += totalItemsWidth;
@@ -89,7 +89,7 @@ const CurvedHeroGallery = () => {
   });
 
   return (
-    <div className="relative w-full h-[450px] md:h-[550px] overflow-hidden flex items-center justify-center [perspective:1500px]">
+    <div className="relative w-full h-[400px] md:h-[550px] overflow-hidden flex items-center justify-center [perspective:1500px] -mt-8 md:mt-0">
       {/* Huge background text behind cards */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden opacity-[0.03]">
         <h1 className="text-[120px] md:text-[240px] lg:text-[400px] font-black tracking-tighter text-black font-heading whitespace-nowrap">
@@ -127,7 +127,7 @@ const IndividualCard: React.FC<{ img: string; scrollX: any; offset: number; card
   const y = useTransform(relativeX, [-1.5, 0, 1.5], [80, 0, 80]);
   const rotateY = useTransform(relativeX, [-1, 0, 1], [40, 0, -40]);
   const rotateZ = useTransform(relativeX, [-1, 0, 1], [-5, 0, 5]);
-  const opacity = useTransform(relativeX, [-2, -1.5, 0, 1.5, 2], [0, 1, 1, 1, 0]);
+  const opacity = useTransform(relativeX, [-2.5, -1.2, 0, 1.2, 2.5], [0, 1, 1, 1, 0]);
 
   return (
     <motion.div
