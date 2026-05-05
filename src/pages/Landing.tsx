@@ -404,7 +404,7 @@ export default function Landing() {
             className="w-full"
           >
             {/* Extremely compact heading */}
-            <h1 className="text-[48px] md:text-[64px] lg:text-[76px] font-black tracking-[-0.05em] leading-[0.85] text-[#1A1A1A] mb-4 flex flex-col items-center font-heading">
+            <h1 className="text-[48px] md:text-[64px] lg:text-[76px] font-black tracking-[-0.05em] leading-[1.1] text-[#1A1A1A] mb-4 flex flex-col items-center gap-2 font-heading">
               <span>Every order</span>
               <span className="flex items-center gap-2">
                 in <span className="text-cartlist-orange">check</span>
