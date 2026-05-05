@@ -90,13 +90,6 @@ const CurvedHeroGallery = () => {
 
   return (
     <div className="relative w-full h-[420px] md:h-[550px] overflow-hidden flex items-center justify-center [perspective:1500px] mt-4 md:mt-0">
-      {/* Huge background text behind cards */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden opacity-[0.03]">
-        <h1 className="text-[120px] md:text-[240px] lg:text-[400px] font-black tracking-tighter text-black font-heading whitespace-nowrap">
-          CARTLIST
-        </h1>
-      </div>
-
       <motion.div 
         className="flex gap-8 absolute left-0"
         style={{ x: scrollX }}
@@ -322,6 +315,16 @@ export default function Landing() {
         </AnimatePresence>
 
         <div className="w-full relative z-10 text-center flex flex-col items-center pt-[15px]">
+          {/* Permanent Background Stretched Text */}
+          <div className="absolute inset-0 flex items-start justify-center pointer-events-none select-none overflow-hidden pt-[71px] -z-10">
+            <h1 
+              className="text-[clamp(100px,15vw,280px)] font-black tracking-tighter font-heading leading-none whitespace-nowrap text-[#F2F3F3]"
+              style={{ transform: 'scaleY(2.6)', transformOrigin: 'top' }}
+            >
+              CARTLIST
+            </h1>
+          </div>
+
           <motion.div
             initial={isDesktop ? { opacity: 0, y: -100 } : { opacity: 0, scale: 0.98 }}
             animate={(isDesktop && (introPhase === 'falling' || introPhase === 'done')) || !isDesktop 
