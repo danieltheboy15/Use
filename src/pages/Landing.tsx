@@ -419,7 +419,7 @@ export default function Landing() {
             <CurvedHeroGallery />
 
             <div className="max-w-xl mx-auto flex flex-col items-center gap-3 px-4">
-              <p className="text-[14px] md:text-[15px] text-gray-500 font-medium leading-[1.4] max-w-sm mx-auto">
+              <p className="text-[14px] md:text-[15px] mt-7 text-gray-500 font-medium leading-[1.4] max-w-sm mx-auto">
                 Track your stockpile orders, stay organized, and manage everything in one place.
               </p>
 
@@ -445,8 +445,10 @@ export default function Landing() {
         </h2>
         {[
           { img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777936742/Component_9_lhgyen.png" },
-          { img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777936742/Component_9_lhgyen.png" },
-          { img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777936742/Component_9_lhgyen.png" }
+          { img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777967539/Group_30_rase2l.png" },
+          { img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777967656/Group_29_nvtlcp.png" },
+          { img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777967872/Group_32_nmrbpa.png" },
+          { img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777967870/Group_33_kwnhof.png" }
         ].map((project, i) => (
           <ProjectCard key={i} project={project} i={i} />
         ))}
