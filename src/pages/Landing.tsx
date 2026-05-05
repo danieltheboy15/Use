@@ -49,13 +49,12 @@ const ProjectCard: React.FC<{ project: { img: string; mobileImg?: string }; i: n
 };
 
 const galleryImages = [
-  "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?q=80&w=1000&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=1000&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1598928506311-c55ded91a20c?q=80&w=1000&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1582213726893-edc10ff052b1?q=80&w=1000&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=1000&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1513506003901-1e6a229e2d15?q=80&w=1000&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=1000&auto=format&fit=crop",
+  "https://res.cloudinary.com/dpsvazol5/image/upload/v1777991807/IMG_8390_30_e2nqcv.png",
+  "https://res.cloudinary.com/dpsvazol5/image/upload/v1777992608/IMG_8391_30_isdjek.png",
+  "https://res.cloudinary.com/dpsvazol5/image/upload/v1777992723/IMG_8392_30_odhxde.png",
+  "https://res.cloudinary.com/dpsvazol5/image/upload/v1777992863/IMG_8394_30_o50sek.png",
+  "https://res.cloudinary.com/dpsvazol5/image/upload/v1777993015/IMG_8397_30_zjnzgk.png",
+  "https://res.cloudinary.com/dpsvazol5/image/upload/v1777993161/IMG_8398_30_j9q5w5.png",
 ];
 
 const CurvedHeroGallery = () => {
