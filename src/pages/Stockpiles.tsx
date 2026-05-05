@@ -426,14 +426,17 @@ export default function Stockpiles() {
       const response = await fetchWithAuth(`/api/stockpiles/${stockpile._id}/remind`, {
         method: "POST"
       });
+      
+      const data = await response.json();
+      
       if (response.ok) {
-        showToast("Reminder sent");
-        console.log(`Reminder sent to ${stockpile.customerName} successfully!`);
+        showToast("Reminder sent successfully");
       } else {
-        console.error("Failed to send reminder");
+        showToast(data.message || "Failed to send reminder", "error");
       }
     } catch (error) {
       console.error("Error sending reminder:", error);
+      showToast("Network error while sending reminder", "error");
     } finally {
       setIsReminding(null);
     }

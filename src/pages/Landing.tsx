@@ -5,7 +5,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Menu, X, Quote, PlusCircle, MinusCircle, Instagram, Facebook, Linkedin, Twitter } from "lucide-react";
 
-const ProjectCard: React.FC<{ project: { img: string }; i: number }> = ({ project, i }) => {
+const ProjectCard: React.FC<{ project: { img: string; mobileImg?: string }; i: number }> = ({ project, i }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -19,7 +19,7 @@ const ProjectCard: React.FC<{ project: { img: string }; i: number }> = ({ projec
   return (
     <div 
       ref={containerRef} 
-      className="sticky top-20 md:top-24 w-full max-w-[392px] md:max-w-[1200px] h-[300px] md:h-[600px] lg:h-[680px] mb-[4vh] md:mb-[5vh] flex items-center justify-center px-4 md:px-0"
+      className="sticky top-20 md:top-24 w-[392px] max-w-[calc(100vw-32px)] md:w-full md:max-w-[1200px] h-[300px] md:h-[600px] lg:h-[680px] mb-[4vh] md:mb-[5vh] flex items-center justify-center mx-auto md:px-0"
       style={{ zIndex: i + 1 }}
     >
       <motion.div
@@ -29,9 +29,17 @@ const ProjectCard: React.FC<{ project: { img: string }; i: number }> = ({ projec
         <img 
           src={project.img} 
           alt="Showcase" 
-          className="w-full h-full object-cover"
+          className={`w-full h-full object-cover ${project.mobileImg ? 'hidden md:block' : ''}`}
           referrerPolicy="no-referrer"
         />
+        {project.mobileImg && (
+          <img 
+            src={project.mobileImg} 
+            alt="Showcase" 
+            className="w-full h-full object-cover md:hidden"
+            referrerPolicy="no-referrer"
+          />
+        )}
       </motion.div>
     </div>
   );
@@ -453,7 +461,10 @@ export default function Landing() {
           With Cartlist, we want you to feel less stress in managing your customers heavy stockpile in one place
         </h2>
         {[
-          { img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777936742/Component_9_lhgyen.png" },
+          { 
+            img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777936742/Component_9_lhgyen.png",
+            mobileImg: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777988806/Group_34_gayou5.png"
+          },
           { img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777967539/Group_30_rase2l.png" },
           { img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777967656/Group_29_nvtlcp.png" },
           { img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777967872/Group_32_nmrbpa.png" },

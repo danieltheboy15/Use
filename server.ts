@@ -163,16 +163,20 @@ const sendWhatsAppNotification = async (to: string, templateName: string, params
     return false;
   }
 
-  // Format phone number to international format without the plus
-  const formattedTo = to.replace(/\D/g, "");
-  let finalTo = formattedTo;
-  if (formattedTo.startsWith("0") && formattedTo.length === 11) {
-    finalTo = "234" + formattedTo.substring(1);
-  } else if (formattedTo.length === 10) {
-    finalTo = "234" + formattedTo;
+  // Robust Phone Formatting for Nigeria (234)
+  let cleaned = to.replace(/\D/g, "");
+  if (cleaned.startsWith("0")) {
+    cleaned = "234" + cleaned.substring(1);
+  } else if (cleaned.length === 10) {
+    cleaned = "234" + cleaned;
+  } else if (cleaned.length === 13 && cleaned.startsWith("234234")) {
+    cleaned = cleaned.substring(3); // Fix double prefix
   }
+  
+  const finalTo = cleaned;
 
-  const url = `https://api.kapso.ai/meta/whatsapp/v24.0/${phoneId}/messages`;
+  // Use v18.0 as it is standard for stable WhatsApp API endpoints
+  const url = `https://api.kapso.ai/meta/whatsapp/v18.0/${phoneId}/messages`;
   
   const data = {
     messaging_product: "whatsapp",
@@ -182,14 +186,14 @@ const sendWhatsAppNotification = async (to: string, templateName: string, params
     template: {
       name: templateName,
       language: {
-        code: "en_US"
+        code: "en" 
       },
       components: [
         {
           type: "body",
           parameters: params.map(p => ({ 
             type: "text", 
-            text: String(p || "").substring(0, 1000) // Safety: ensure it's a string and not too long
+            text: String(p || "").substring(0, 1024)
           }))
         }
       ]
@@ -197,24 +201,26 @@ const sendWhatsAppNotification = async (to: string, templateName: string, params
   };
 
   try {
-    console.log(`Sending WhatsApp template ${templateName} to ${finalTo} with params:`, JSON.stringify(params));
+    console.log(`[WA] Sending ${templateName} to ${finalTo}. Params:`, JSON.stringify(params));
     const response = await axios.post(url, data, {
       headers: {
         "Content-Type": "application/json",
         "X-API-Key": apiKey
       },
-      timeout: 15000
+      timeout: 12000
     });
     
-    // Log FULL response as requested
     const fullResponse = response.data;
-    console.log(`Kapso API FULL RESPONSE for ${templateName}:`, JSON.stringify(fullResponse, null, 2));
+    console.log(`[WA] Response for ${templateName}:`, JSON.stringify(fullResponse, null, 2));
     
-    // Standard Meta Response includes message ID
+    if (fullResponse.error) {
+       throw new Error(fullResponse.error.message || "Meta API internal error");
+    }
+
     const messageId = fullResponse.messages?.[0]?.id;
     const messageStatus = fullResponse.messages?.[0]?.message_status || "accepted";
     
-    console.log(`WhatsApp template ${templateName} SUCCESS: ID=${messageId}, Status=${messageStatus}, Recipient=${finalTo}`);
+    console.log(`[WA] SUCCESS: ID=${messageId}, Status=${messageStatus}`);
     
     // Log to DB
     await MessageLog.create({
@@ -253,14 +259,14 @@ const sendWhatsAppNotification = async (to: string, templateName: string, params
 const sendStockpileCreatedNotification = async (vendor: any, stockpile: any) => {
   try {
     const prefs = vendor.notifications?.stockpileUpdates || { email: true, sms: true, push: true, inApp: true };
-    if (prefs.sms === false) return false;
-
+    
+    // Items summary
     const itemsSummary = stockpile.items.map((item: any) => `${item.name}(x${item.quantity})`).join(", ");
     const closingDate = format(new Date(stockpile.endDate), "d MMM yyyy");
     const baseUrl = (process.env.APP_URL || "https://www.usecartlist.com").replace(/\/$/, "");
     const publicUrl = `${baseUrl}/view/${stockpile._id}`;
 
-    // Template: stockpile_created
+    // COMPULSORY WhatsApp: Template: stockpile_created
     // Params: {{1}}Customer, {{2}}Vendor, {{3}}Items, {{4}}Total, {{5}}Link
     const sent = await sendWhatsAppNotification(
       stockpile.customerPhone, 
@@ -281,6 +287,7 @@ const sendStockpileCreatedNotification = async (vendor: any, stockpile: any) => 
       });
     }
 
+    // Always log in-app notification
     await Notification.create({
       userId: vendor._id,
       title: "New Stockpile Started",
@@ -289,6 +296,7 @@ const sendStockpileCreatedNotification = async (vendor: any, stockpile: any) => 
       stockpileId: stockpile._id
     });
 
+    // Email remains optional
     if (prefs.email !== false && stockpile.customerEmail) {
       const resend = getResend();
       if (resend) {
@@ -308,9 +316,60 @@ const sendStockpileCreatedNotification = async (vendor: any, stockpile: any) => 
         });
       }
     }
-    return true;
+    return sent;
   } catch (error) {
     console.error("Error sending creation notification:", error);
+    return false;
+  }
+};
+
+const sendStockpileReminderNotification = async (vendor: any, stockpile: any) => {
+  try {
+    const prefs = vendor.notifications?.reminders || { email: true, sms: true, push: true, inApp: true };
+    const closingDate = format(new Date(stockpile.endDate), "d MMM yyyy");
+    const baseUrl = (process.env.APP_URL || "https://www.usecartlist.com").replace(/\/$/, "");
+    const publicUrl = `${baseUrl}/view/${stockpile._id}`;
+
+    // COMPULSORY WhatsApp: Template: stockpile_reminder
+    // Params: {{1}}Customer, {{2}}Vendor, {{3}}Date, {{4}}Total, {{5}}Link
+    // Note: If delivery fails after "accepted", ensure your Meta template has exactly 5 placeholders.
+    const whatsappSent = await sendWhatsAppNotification(
+      stockpile.customerPhone, 
+      "stockpile_reminder", 
+      [
+        stockpile.customerName, 
+        vendor.businessName, 
+        closingDate, 
+        stockpile.totalAmount.toLocaleString(), 
+        publicUrl
+      ],
+      { stockpileId: stockpile._id.toString(), vendorId: vendor._id.toString() }
+    );
+
+    // Email remains optional
+    if (prefs.email !== false && stockpile.customerEmail) {
+      const resend = getResend();
+      if (resend) {
+        await resend.emails.send({
+          from: `Cartlist <${FROM_EMAIL}>`,
+          to: stockpile.customerEmail,
+          subject: `Reminder: Your Stockpile with ${vendor.businessName}`,
+          html: `
+            <div style="font-family: sans-serif; padding: 20px; color: #333;">
+              <h2>Hi ${stockpile.customerName}!</h2>
+              <p>This is a friendly reminder from <strong>${vendor.businessName}</strong>.</p>
+              <p>Your stockpile list is closing on <strong>${closingDate}</strong>.</p>
+              <p><strong>Current Total:</strong> ₦${stockpile.totalAmount.toLocaleString()}</p>
+              <p><a href="${publicUrl}" style="display: inline-block; padding: 10px 20px; background-color: #F07E48; color: white; text-decoration: none; border-radius: 5px;">View Your List</a></p>
+              <p>Don't forget to finalize your orders before the closing date!</p>
+            </div>
+          `
+        });
+      }
+    }
+    return whatsappSent;
+  } catch (error) {
+    console.error("Error sending reminder notification:", error);
     return false;
   }
 };
@@ -319,30 +378,27 @@ const sendStockpileUpdateNotification = async (vendor: any, stockpile: any, item
   try {
     const prefs = vendor.notifications?.stockpileUpdates || { email: true, sms: true, push: true, inApp: true };
     const itemsSummary = itemsAdded.map((item: any) => `${item.name}(x${item.quantity})`).join(", ");
-    const closingDate = format(new Date(stockpile.endDate), "d MMM yyyy");
     const baseUrl = (process.env.APP_URL || "https://www.usecartlist.com").replace(/\/$/, "");
     const publicUrl = `${baseUrl}/view/${stockpile._id}`;
 
-    if (prefs.sms !== false) {
-      // Template: stockpile_updated
-      // Params: {{1}}Customer, {{2}}Vendor, {{3}}ItemsAdded, {{4}}Total, {{5}}Link
-      const sent = await sendWhatsAppNotification(
-        stockpile.customerPhone, 
-        "stockpile_updated", 
-        [
-          stockpile.customerName, 
-          vendor.businessName, 
-          itemsSummary, 
-          stockpile.totalAmount.toLocaleString(), 
-          publicUrl
-        ]
-      );
+    // COMPULSORY WhatsApp: Template: stockpile_updated
+    // Params: {{1}}Customer, {{2}}Vendor, {{3}}ItemsAdded, {{4}}Total, {{5}}Link
+    const sent = await sendWhatsAppNotification(
+      stockpile.customerPhone, 
+      "stockpile_updated", 
+      [
+        stockpile.customerName, 
+        vendor.businessName, 
+        itemsSummary, 
+        stockpile.totalAmount.toLocaleString(), 
+        publicUrl
+      ]
+    );
 
-      if (sent) {
-        await Stockpile.findByIdAndUpdate(stockpile._id, { 
-          lastWhatsAppTemplateSent: "stockpile_updated" 
-        });
-      }
+    if (sent) {
+      await Stockpile.findByIdAndUpdate(stockpile._id, { 
+        lastWhatsAppTemplateSent: "stockpile_updated" 
+      });
     }
 
     await Notification.create({
@@ -385,15 +441,13 @@ const sendStockpileExtensionNotification = async (vendor: any, stockpile: any) =
     const baseUrl = (process.env.APP_URL || "https://www.usecartlist.com").replace(/\/$/, "");
     const publicUrl = `${baseUrl}/view/${stockpile._id}`;
 
-    if (prefs.sms !== false) {
-      // Template: stockpile_extended
-      // Params: {{1}}Customer, {{2}}Vendor, {{3}}NewDate, {{4}}Link
-      await sendWhatsAppNotification(
-        stockpile.customerPhone, 
-        "stockpile_extended", 
-        [stockpile.customerName, vendor.businessName, closingDate, publicUrl]
-      );
-    }
+    // COMPULSORY WhatsApp: Template: stockpile_extended
+    // Params: {{1}}Customer, {{2}}Vendor, {{3}}NewDate, {{4}}Link
+    const sent = await sendWhatsAppNotification(
+      stockpile.customerPhone, 
+      "stockpile_extended", 
+      [stockpile.customerName, vendor.businessName, closingDate, publicUrl]
+    );
 
     if (prefs.email !== false && stockpile.customerEmail) {
       const resend = getResend();
@@ -412,7 +466,7 @@ const sendStockpileExtensionNotification = async (vendor: any, stockpile: any) =
         });
       }
     }
-    return true;
+    return sent;
   } catch (error) {
     console.error("Error sending extension notification:", error);
     return false;
@@ -425,16 +479,14 @@ const sendStockpileClosedNotification = async (vendor: any, stockpile: any) => {
     const baseUrl = (process.env.APP_URL || "https://www.usecartlist.com").replace(/\/$/, "");
     const publicUrl = `${baseUrl}/view/${stockpile._id}`;
 
-    if (prefs.sms !== false) {
-      // Template: stockpile_closed
-      // Params: {{1}}Customer, {{2}}Vendor, {{3}}Total, {{4}}Link
-      await sendWhatsAppNotification(
-        stockpile.customerPhone, 
-        "stockpile_closed", 
-        [stockpile.customerName, vendor.businessName, stockpile.totalAmount.toLocaleString(), publicUrl],
-        { stockpileId: stockpile._id, vendorId: vendor._id }
-      );
-    }
+    // COMPULSORY WhatsApp: Template: stockpile_closed
+    // Params: {{1}}Customer, {{2}}Vendor, {{3}}Total, {{4}}Link
+    const sent = await sendWhatsAppNotification(
+      stockpile.customerPhone, 
+      "stockpile_closed", 
+      [stockpile.customerName, vendor.businessName, stockpile.totalAmount.toLocaleString(), publicUrl],
+      { stockpileId: stockpile._id, vendorId: vendor._id }
+    );
 
     if (prefs.email !== false && stockpile.customerEmail) {
       const resend = getResend();
@@ -462,7 +514,7 @@ const sendStockpileClosedNotification = async (vendor: any, stockpile: any) => {
       type: "success",
       stockpileId: stockpile._id
     });
-    return true;
+    return sent;
   } catch (error) {
     console.error("Error sending closure notification:", error);
     return false;
@@ -899,53 +951,13 @@ app.post("/api/stockpiles/:id/remind", authenticate, async (req: any, res) => {
     const vendor = await User.findById(vendorId);
     if (!vendor) return res.status(404).json({ message: "Vendor not found" });
 
-    const prefs = vendor.notifications?.reminders || { email: true, sms: true, push: true, inApp: true };
-    
-    const closingDate = format(new Date(stockpile.endDate), "d MMM yyyy");
-    const appUrl = process.env.APP_URL || "";
-    const publicUrl = `${appUrl}/view/${stockpile._id}`;
+    const success = await sendStockpileReminderNotification(vendor, stockpile);
 
-    // Send WhatsApp if enabled
-    if (prefs.sms !== false) {
-      // Template: stockpile_reminder
-      // Params: {{1}}Customer, {{2}}Vendor, {{3}}Date, {{4}}Total, {{5}}Link
-      await sendWhatsAppNotification(
-        stockpile.customerPhone, 
-        "stockpile_reminder", 
-        [
-          stockpile.customerName, 
-          vendor.businessName, 
-          closingDate, 
-          stockpile.totalAmount.toLocaleString(), 
-          publicUrl
-        ],
-        { stockpileId: stockpile._id.toString(), vendorId: vendorId.toString() }
-      );
+    if (success) {
+      res.json({ message: "Reminder sent successfully" });
+    } else {
+      res.status(400).json({ message: "Failed to send WhatsApp reminder. Check if the customer's phone number is correct or if your WhatsApp API balance is low." });
     }
-
-    // Send Email if enabled
-    if (prefs.email !== false && stockpile.customerEmail) {
-      const resend = getResend();
-      if (resend) {
-        await resend.emails.send({
-          from: `Cartlist <${FROM_EMAIL}>`,
-          to: stockpile.customerEmail,
-          subject: `Reminder: Your Stockpile with ${vendor.businessName}`,
-          html: `
-            <div style="font-family: sans-serif; padding: 20px; color: #333;">
-              <h2>Hi ${stockpile.customerName}!</h2>
-              <p>This is a friendly reminder from <strong>${vendor.businessName}</strong>.</p>
-              <p>Your stockpile list is closing on <strong>${closingDate}</strong>.</p>
-              <p><strong>Current Total:</strong> ₦${stockpile.totalAmount.toLocaleString()}</p>
-              <p><a href="${publicUrl}" style="display: inline-block; padding: 10px 20px; background-color: #F07E48; color: white; text-decoration: none; border-radius: 5px;">View Your List</a></p>
-              <p>Don't forget to finalize your orders before the closing date!</p>
-            </div>
-          `
-        });
-      }
-    }
-
-    res.json({ message: "Reminder sent successfully" });
   } catch (error) {
     console.error("Error sending reminder:", error);
     res.status(500).json({ message: "Error sending reminder" });
@@ -2235,17 +2247,10 @@ app.post("/api/admin/message-logs/:id/retry", authenticate, isAdmin, async (req:
       success = await sendStockpileCreatedNotification(vendor, stockpile);
     } else if (log.templateName === "stockpile_closed") {
       success = await sendStockpileClosedNotification(vendor, stockpile);
+    } else if (log.templateName === "stockpile_extended") {
+      success = await sendStockpileExtensionNotification(vendor, stockpile);
     } else if (log.templateName === "stockpile_reminder") {
-      // Need vendor.notifications.reminders logic similar to remind route
-      const closingDate = format(new Date(stockpile.endDate), "d MMM yyyy");
-      const baseUrl = (process.env.APP_URL || "https://www.usecartlist.com").replace(/\/$/, "");
-      const publicUrl = `${baseUrl}/view/${stockpile._id}`;
-      success = await sendWhatsAppNotification(
-        stockpile.customerPhone,
-        "stockpile_reminder",
-        [stockpile.customerName, vendor.businessName, closingDate, stockpile.totalAmount.toLocaleString(), publicUrl],
-        { stockpileId: stockpile._id.toString(), vendorId: vendor._id.toString() }
-      ).catch(() => false);
+      success = await sendStockpileReminderNotification(vendor, stockpile);
     }
 
     if (success) {
