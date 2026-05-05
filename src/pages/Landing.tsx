@@ -19,27 +19,28 @@ const ProjectCard: React.FC<{ project: { img: string; mobileImg?: string }; i: n
   return (
     <div 
       ref={containerRef} 
-      className="sticky top-20 md:top-24 w-[392px] max-w-[calc(100vw-32px)] md:w-full md:max-w-[1200px] h-[300px] md:h-[600px] lg:h-[680px] mb-[4vh] md:mb-[5vh] flex items-center justify-center mx-auto md:px-0"
+      className="sticky top-20 md:top-24 w-full max-w-[392px] md:max-w-[1200px] h-[300px] md:h-[600px] lg:h-[680px] mb-[4vh] md:mb-[5vh] flex items-center justify-center mx-auto px-4 md:px-0"
       style={{ zIndex: i + 1 }}
     >
       <motion.div
         style={{ scale, rotateX, transformPerspective: 1200 }}
-        className="relative w-full h-full rounded-[24px] md:rounded-[48px] lg:rounded-[64px] overflow-hidden shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)]"
+        className="relative w-full h-full rounded-[24px] md:rounded-[48px] lg:rounded-[64px] overflow-hidden shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)] bg-white/5 backdrop-blur-xl border border-white/10"
       >
+        {/* Desktop view uses img */}
         <img 
           src={project.img} 
           alt="Showcase" 
-          className={`w-full h-full object-cover ${project.mobileImg ? 'hidden md:block' : ''}`}
+          className="hidden md:block w-full h-full object-cover"
           referrerPolicy="no-referrer"
         />
-        {project.mobileImg && (
-          <img 
-            src={project.mobileImg} 
-            alt="Showcase" 
-            className="w-full h-full object-cover md:hidden"
-            referrerPolicy="no-referrer"
-          />
-        )}
+        
+        {/* Mobile view uses a container div with background image */}
+        <div 
+          className="md:hidden w-full h-full bg-cover bg-center bg-no-repeat"
+          style={{ 
+            backgroundImage: `url(${project.mobileImg || project.img})`
+          }}
+        />
       </motion.div>
     </div>
   );
@@ -463,12 +464,24 @@ export default function Landing() {
         {[
           { 
             img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777936742/Component_9_lhgyen.png",
-            mobileImg: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777988806/Group_34_gayou5.png"
+            mobileImg: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777990019/Group_40_liwu2r.png"
           },
-          { img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777967539/Group_30_rase2l.png" },
-          { img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777967656/Group_29_nvtlcp.png" },
-          { img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777967872/Group_32_nmrbpa.png" },
-          { img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777967870/Group_33_kwnhof.png" }
+          { 
+            img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777967539/Group_30_rase2l.png",
+            mobileImg: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777990685/Group_41_dpnsv3.png"
+          },
+          { 
+            img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777967656/Group_29_nvtlcp.png",
+            mobileImg: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777990796/Group_42_qzqyed.png"
+          },
+          { 
+            img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777967872/Group_32_nmrbpa.png",
+            mobileImg: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777990891/Group_43_jxw33e.png"
+          },
+          { 
+            img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777967870/Group_33_kwnhof.png",
+            mobileImg: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777990957/Group_44_cbjkh8.png"
+          }
         ].map((project, i) => (
           <ProjectCard key={i} project={project} i={i} />
         ))}
