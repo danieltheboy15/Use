@@ -42,7 +42,7 @@ export const Header = () => {
 
   return (
     <>
-      <nav className={`fixed top-0 left-0 right-0 z-[110] transition-all duration-300 ${isScrolled ? 'md:bg-white bg-[#FDF8F3]/80 backdrop-blur-lg shadow-sm' : 'bg-transparent backdrop-blur-md'} border-b border-black/5`}>
+      <nav className={`fixed top-0 left-0 right-0 z-[110] transition-all duration-300 ${isMenuOpen ? 'opacity-0 pointer-events-none md:opacity-100 md:pointer-events-auto' : 'opacity-100'} ${isScrolled ? 'md:bg-white bg-white/80 backdrop-blur-lg shadow-sm' : 'bg-transparent backdrop-blur-md'} border-b border-black/5`}>
         <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
           {/* Mobile Logo */}
           <div className="md:hidden flex-1">

@@ -262,11 +262,11 @@ export default function Landing() {
   ];
   
   return (
-    <div className="min-h-screen bg-[#FDF8F3] selection:bg-orange-100 selection:text-cartlist-orange overflow-hidden font-sans flex flex-col">
+    <div className="min-h-screen bg-white selection:bg-orange-100 selection:text-cartlist-orange overflow-hidden font-sans flex flex-col">
       <Header />
 
       {/* Hero Section - Very Compact */}
-      <section className="relative pt-24 pb-12 flex flex-col items-center justify-center overflow-hidden">
+      <section className="relative pt-24 pb-12 flex flex-col items-center justify-center overflow-hidden bg-white">
         {/* Universal Intro Animation Overlay */}
         <AnimatePresence>
           {(introPhase === 'initial' || introPhase === 'stretching' || introPhase === 'coloring') && (
@@ -275,7 +275,7 @@ export default function Landing() {
               initial={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.5 }}
-              className="fixed inset-0 z-[100] flex items-start justify-center bg-[#FDF8F3] overflow-hidden pt-[71px]"
+              className="fixed inset-0 z-[100] flex items-start justify-center bg-white overflow-hidden pt-[71px]"
             >
               <motion.h1
                 initial={{ color: "#F07E48", scaleY: 1, y: -100, opacity: 0 }}
@@ -354,138 +354,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Project Showcase Section */}
-      <section className="px-6 flex flex-col items-center py-20 lg:py-32 bg-[#FDF8F3] relative z-20">
-        <h2 className="text-[20px] md:text-[24px] lg:text-[28px] font-black leading-[1.1] text-[#1A1A1A] max-w-2xl mx-auto text-center mb-12 font-semibold tracking-tight">
-          With Cartlist, we want you to feel less stress in managing your customers heavy stockpile in one place
-        </h2>
-        {[
-          { 
-            img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777936742/Component_9_lhgyen.png",
-            mobileImg: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777990019/Group_40_liwu2r.png"
-          },
-          { 
-            img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777967539/Group_30_rase2l.png",
-            mobileImg: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777990685/Group_41_dpnsv3.png"
-          },
-          { 
-            img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777967656/Group_29_nvtlcp.png",
-            mobileImg: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777990796/Group_42_qzqyed.png"
-          },
-          { 
-            img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777967872/Group_32_nmrbpa.png",
-            mobileImg: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777990891/Group_43_jxw33e.png"
-          },
-          { 
-            img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777967870/Group_33_kwnhof.png",
-            mobileImg: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777990957/Group_44_cbjkh8.png"
-          }
-        ].map((project, i) => (
-          <ProjectCard key={i} project={project} i={i} />
-        ))}
-      </section>
-
-      {/* Pricing Section */}
-      <section className="bg-[#0A0D14] pt-32 pb-0 px-6 relative overflow-hidden">
-        {/* Background Decorative Accent */}
-        <div className="absolute -bottom-48 -right-48 w-[600px] h-[600px] bg-[#F07E48]/10 rounded-full blur-[120px]" />
-        
-        <div className="max-w-7xl mx-auto relative z-10">
-          <motion.h2 
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-[32px] md:text-[48px] font-semibold text-white text-center mb-20 font-heading"
-          >
-            Pricing we offer
-          </motion.h2>
-
-          <div className="relative border-t border-b border-white/10">
-            {/* Horizontal Grid Markers */}
-            <div className="absolute -top-3 -left-3 text-white/20 select-none">+</div>
-            <div className="absolute -top-3 -right-3 text-white/20 select-none">+</div>
-            <div className="absolute -bottom-3 -left-3 text-white/20 select-none">+</div>
-            <div className="absolute -bottom-3 -right-3 text-white/20 select-none">+</div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 divide-y md:divide-y-0 lg:divide-x divide-white/10 border-l border-r border-white/10">
-              {[
-                {
-                  name: "Free Plan",
-                  price: null,
-                  features: ["Realtime activity log", "Email alert", "WhatsApp copy", "15 Capped logged customers"],
-                  button: "Start free plan"
-                },
-                {
-                  name: "Starter Plan",
-                  price: "3,500",
-                  features: ["Realtime activity log", "Email alert", "24/7 support", "WhatsApp Alert", "50 Capped logged customers"],
-                  button: "Start starter plan"
-                },
-                {
-                  name: "Pro Plan",
-                  price: "5,000",
-                  features: ["Realtime activity log", "Email alert", "24/7 support", "WhatsApp Alert", "100 Capped logged customers"],
-                  button: "Start pro plan"
-                },
-                {
-                  name: "Enterprise Plan",
-                  price: "10,000",
-                  features: ["Realtime activity log", "Email alert", "24/7 support", "WhatsApp Alert", "Data analysis report", "Custom logged based on user"],
-                  button: "Start ent plan"
-                }
-              ].map((plan, i) => (
-                <motion.div 
-                  key={i}
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ 
-                    initial: { delay: i * 0.1, duration: 0.6 },
-                    whileHover: { duration: 0 } 
-                  }}
-                  viewport={{ once: true }}
-                  whileHover={{ 
-                    backgroundColor: "rgba(80, 41, 16, 1)",
-                    borderColor: "rgba(240, 126, 72, 1)",
-                    scale: 1.02,
-                    zIndex: 20
-                  }}
-                  className="p-8 md:p-10 flex flex-col h-full group border border-transparent rounded-[32px] md:rounded-none relative"
-                >
-                  <h3 className="text-white text-[22px] md:text-[24px] font-bold mb-8 font-heading whitespace-nowrap">{plan.name}</h3>
-                  
-                  <div className="mb-10 min-h-[60px] flex items-baseline gap-1">
-                    {plan.price ? (
-                      <>
-                        <span className="text-[#F07E48] text-[32px] md:text-[36px] font-bold leading-none tracking-tighter">N{plan.price}/</span>
-                        <span className="text-gray-500 group-hover:text-white/60 text-[13px] font-medium uppercase tracking-wider">Month</span>
-                      </>
-                    ) : (
-                      <div className="h-10" />
-                    )}
-                  </div>
-
-                  <div className="mb-12 flex-grow">
-                    <p className="text-white text-[16px] font-bold mb-6">What is in for you</p>
-                    <ul className="space-y-4">
-                      {plan.features.map((feature, idx) => (
-                        <li key={idx} className="flex items-start gap-3 text-white/70 group-hover:text-white transition-colors">
-                          <span className="text-[#F07E48] group-hover:text-white font-bold text-lg leading-none">•</span>
-                          <span className="text-[14px] font-medium leading-normal">{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <button className="w-full py-5 rounded-full border border-white/20 text-white font-bold text-[16px] group-hover:bg-white group-hover:text-[#502910] group-hover:border-white transition-all duration-300">
-                    {plan.button}
-                  </button>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* How It Works Section */}
       <section className="bg-[#0A0D14] pt-40 pb-32 px-6 relative overflow-hidden">
         {/* Decorative Swirl Patterns */}
@@ -559,6 +427,138 @@ export default function Landing() {
                 </p>
               </motion.div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Project Showcase Section */}
+      <section className="px-6 flex flex-col items-center py-20 lg:py-32 bg-white relative z-20">
+        <h2 className="text-[20px] md:text-[24px] lg:text-[28px] font-black leading-[1.1] text-[#1A1A1A] max-w-2xl mx-auto text-center mb-12 font-semibold tracking-tight">
+          With Cartlist, we want you to feel less stress in managing your customers heavy stockpile in one place
+        </h2>
+        {[
+          { 
+            img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777936742/Component_9_lhgyen.png",
+            mobileImg: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777990019/Group_40_liwu2r.png"
+          },
+          { 
+            img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777967539/Group_30_rase2l.png",
+            mobileImg: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777990685/Group_41_dpnsv3.png"
+          },
+          { 
+            img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777967656/Group_29_nvtlcp.png",
+            mobileImg: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777990796/Group_42_qzqyed.png"
+          },
+          { 
+            img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777967872/Group_32_nmrbpa.png",
+            mobileImg: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777990891/Group_43_jxw33e.png"
+          },
+          { 
+            img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777967870/Group_33_kwnhof.png",
+            mobileImg: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777990957/Group_44_cbjkh8.png"
+          }
+        ].map((project, i) => (
+          <ProjectCard key={i} project={project} i={i} />
+        ))}
+      </section>
+
+      {/* Pricing Section */}
+      <section className="bg-[#0A0D14] pt-32 pb-0 px-6 relative overflow-hidden">
+        {/* Background Decorative Accent */}
+        <div className="absolute -bottom-48 -right-48 w-[600px] h-[600px] bg-[#F07E48]/10 rounded-full blur-[120px]" />
+        
+        <div className="max-w-7xl mx-auto relative z-10">
+          <motion.h2 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-[32px] md:text-[48px] font-semibold text-white text-center mb-20 font-heading"
+          >
+            Pricing we offer
+          </motion.h2>
+
+          <div className="relative border-t border-b border-white/10">
+            {/* Horizontal Grid Markers */}
+            <div className="absolute -top-3 -left-3 text-white/20 select-none">+</div>
+            <div className="absolute -top-3 -right-3 text-white/20 select-none">+</div>
+            <div className="absolute -bottom-3 -left-3 text-white/20 select-none">+</div>
+            <div className="absolute -bottom-3 -right-3 text-white/20 select-none">+</div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 divide-y md:divide-y-0 lg:divide-x divide-white/10 border-l border-r border-white/10">
+              {[
+                {
+                  name: "Free Plan",
+                  price: "0",
+                  features: ["Realtime activity log", "Email alert", "WhatsApp copy", "15 Capped logged customers"],
+                  button: "Start free plan"
+                },
+                {
+                  name: "Starter Plan",
+                  price: "3,500 ",
+                  features: ["Realtime activity log", "Email alert", "24/7 support", "WhatsApp Alert", "50 Capped logged customers"],
+                  button: "Start starter plan"
+                },
+                {
+                  name: "Pro Plan",
+                  price: "5,000 ",
+                  features: ["Realtime activity log", "Email alert", "24/7 support", "WhatsApp Alert", "100 Capped logged customers"],
+                  button: "Start pro plan"
+                },
+                {
+                  name: "Enterprise Plan",
+                  price: "10,000 ",
+                  features: ["Realtime activity log", "Email alert", "24/7 support", "WhatsApp Alert", "Data analysis report", "Custom logged based on user"],
+                  button: "Start ent plan"
+                }
+              ].map((plan, i) => (
+                <motion.div 
+                  key={i}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ 
+                    initial: { delay: i * 0.1, duration: 0.6 },
+                    whileHover: { duration: 0 } 
+                  }}
+                  viewport={{ once: true }}
+                  whileHover={{ 
+                    backgroundColor: "rgba(80, 41, 16, 1)",
+                    borderColor: "rgba(240, 126, 72, 1)",
+                    scale: 1.02,
+                    zIndex: 20
+                  }}
+                  className="p-8 md:p-10 flex flex-col h-full group border border-transparent rounded-[32px] md:rounded-none relative"
+                >
+                  <h3 className="text-white text-[22px] md:text-[24px] font-bold mb-8 font-heading whitespace-nowrap">{plan.name}</h3>
+                  
+                  <div className="mb-10 min-h-[60px] flex items-baseline gap-1">
+                    {plan.price ? (
+                      <>
+                        <span className="text-[#F07E48] text-[32px] md:text-[36px] font-bold leading-none tracking-tighter">N{plan.price}/</span>
+                        <span className="text-gray-500 group-hover:text-white/60 text-[13px] font-medium uppercase tracking-wider">Month</span>
+                      </>
+                    ) : (
+                      <div className="h-10" />
+                    )}
+                  </div>
+
+                  <div className="mb-12 flex-grow">
+                    <p className="text-white text-[16px] font-bold mb-6">What is in for you</p>
+                    <ul className="space-y-4">
+                      {plan.features.map((feature, idx) => (
+                        <li key={idx} className="flex items-start gap-3 text-white/70 group-hover:text-white transition-colors">
+                          <span className="text-[#F07E48] group-hover:text-white font-bold text-lg leading-none">•</span>
+                          <span className="text-[14px] font-medium leading-normal">{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <button className="w-full py-5 rounded-full border border-white/20 text-white font-bold text-[16px] group-hover:bg-white group-hover:text-[#502910] group-hover:border-white transition-all duration-300">
+                    {plan.button}
+                  </button>
+                </motion.div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -829,15 +829,17 @@ export default function Landing() {
             <p className="text-gray-500 text-[14px] md:text-[16px] mb-8">
               Can't find the answer you're looking for? Please chat to our friendly team.
             </p>
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="inline-block"
-            >
-              <Button className="h-[48px] px-8 rounded-full bg-white hover:bg-gray-50 text-gray-900 font-bold text-[15px] border border-gray-200 shadow-sm">
-                Get in touch
-              </Button>
-            </motion.div>
+            <Link to="/contact">
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="inline-block"
+              >
+                <Button className="h-[48px] px-8 rounded-full bg-white hover:bg-gray-50 text-gray-900 font-bold text-[15px] border border-gray-200 shadow-sm">
+                  Get in touch
+                </Button>
+              </motion.div>
+            </Link>
           </motion.div>
         </div>
       </section>

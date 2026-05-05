@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion } from "motion/react";
-import { Mail, Phone, Instagram, Facebook, Linkedin, Twitter, Send, Loader2 } from "lucide-react";
+import { Mail, MessageCircle, Instagram, Facebook, Linkedin, Send, Loader2 } from "lucide-react";
 import { Header } from "@/components/landing/Header";
 import { Footer } from "@/components/landing/Footer";
 import { Button } from "@/components/ui/button";
@@ -8,12 +8,26 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ContactSuccessModal } from "@/components/landing/ContactSuccessModal";
 
+const XIcon = ({ size = 24, className = "" }: { size?: number; className?: string }) => (
+  <svg 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="currentColor" 
+    className={className}
+  >
+    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+  </svg>
+);
+
 const SocialIcon = ({ icon: Icon, href = "#" }: { icon: any; href?: string }) => (
   <a 
     href={href}
+    target="_blank"
+    rel="noopener noreferrer"
     className="w-12 h-12 flex items-center justify-center rounded-lg border border-gray-400 text-gray-700 hover:border-cartlist-orange hover:text-cartlist-orange transition-all"
   >
-    <Icon size={24} />
+    {typeof Icon === 'function' && Icon.name === 'XIcon' ? <Icon size={24} /> : <Icon size={24} />}
   </a>
 );
 
@@ -74,43 +88,41 @@ export default function Contact() {
             >
               <h1 className="text-[64px] md:text-[80px] font-black text-gray-900 leading-none mb-4 flex items-baseline gap-2 font-heading">
                 Contact us
-                <span className="w-4 h-4 bg-cartlist-orange rounded-sm inline-block translate-y-[-10px]" />
               </h1>
             </motion.div>
 
             <div className="mt-16">
               <p className="text-gray-500 text-[18px] mb-6 font-medium">Our socials</p>
               <div className="flex gap-4 mb-16">
-                <SocialIcon icon={Instagram} />
-                <SocialIcon icon={Facebook} />
-                <SocialIcon icon={Linkedin} />
-                <SocialIcon icon={Twitter} /> {/* Using Twitter icon as X placeholder if preferred */}
+                <SocialIcon icon={Instagram} href="https://www.instagram.com/usecartlist" />
+                <SocialIcon icon={Facebook} href="https://www.facebook.com/usecartlist" />
+                <SocialIcon icon={Linkedin} href="https://www.linkedin.com/company/112261294" />
+                <SocialIcon icon={XIcon} href="https://x.com/usecartlist?s=21" />
               </div>
 
               <p className="text-gray-500 text-[18px] mb-8 font-medium">Our contacts</p>
               <div className="space-y-6">
-                <div className="flex items-center gap-4 text-gray-900 text-[20px] md:text-[24px] font-bold">
+                <a 
+                  href="mailto:hello@usecartlist.com" 
+                  className="flex items-center gap-4 text-gray-900 text-[20px] md:text-[24px] font-bold hover:text-cartlist-orange transition-colors group"
+                >
                   <div className="w-10 h-10 flex items-center justify-center">
-                    <Mail className="w-6 h-6 text-gray-700" />
+                    <Mail className="w-6 h-6 text-gray-700 group-hover:text-cartlist-orange transition-colors" />
                   </div>
-                  <span>usecartlist@gmail.com</span>
-                </div>
-                <div className="flex items-center gap-4 text-gray-900 text-[20px] md:text-[24px] font-bold">
+                  <span>hello@usecartlist.com</span>
+                </a>
+                
+                <a 
+                  href="https://wa.me/2348149342429" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-4 text-gray-900 text-[20px] md:text-[24px] font-bold hover:text-cartlist-orange transition-colors group"
+                >
                   <div className="w-10 h-10 flex items-center justify-center">
-                    <Phone className="w-6 h-6 text-gray-700" />
+                    <MessageCircle className="w-6 h-6 text-gray-700 group-hover:text-cartlist-orange transition-colors" />
                   </div>
-                  <span>+234 9040000000</span>
-                </div>
-                <div className="flex items-center gap-4 text-gray-900 text-[20px] md:text-[24px] font-bold">
-                  <div className="w-10 h-10 flex items-center justify-center">
-                    <img 
-                      src="https://res.cloudinary.com/dpsvazol5/image/upload/v1777995648/WhatsApp_Icon_vnmoxv.png" 
-                      alt="WhatsApp" 
-                      className="w-6 h-6"
-                    />
-                  </div>
-                  <span>+234 9040000000</span>
-                </div>
+                  <span>+234 814 934 2429</span>
+                </a>
               </div>
             </div>
             

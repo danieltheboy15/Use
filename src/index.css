@@ -47,11 +47,11 @@
     --radius-4xl: calc(var(--radius) * 2.6);
 
     --color-cartlist-orange: #F07E48;
-    --color-cartlist-beige: #FDF8F3;
+    --color-cartlist-beige: #FFFFFF;
 }
 
 :root {
-    --background: #FDF8F3;
+    --background: #FFFFFF;
     --foreground: #1A1A1A;
     --card: #FFFFFF;
     --card-foreground: #1A1A1A;

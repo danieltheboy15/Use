@@ -76,6 +76,16 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  return null;
+};
+
 export default function App() {
   return (
     <ThemeProvider>
@@ -85,6 +95,7 @@ export default function App() {
             <BusinessNameModal />
             <WelcomeModal />
             <Router>
+              <ScrollToTop />
               <ThemeSync />
               <Routes>
                 <Route path="/" element={<Landing />} />

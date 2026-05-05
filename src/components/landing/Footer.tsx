@@ -1,6 +1,18 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Instagram, Facebook, Linkedin, Twitter } from "lucide-react";
+import { Instagram, Facebook, Linkedin } from "lucide-react";
+
+const XIcon = ({ size = 24, className = "" }: { size?: number; className?: string }) => (
+  <svg 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="currentColor" 
+    className={className}
+  >
+    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+  </svg>
+);
 
 export const Footer = () => {
   return (
@@ -22,19 +34,21 @@ export const Footer = () => {
             <h3 className="text-[16px] md:text-[18px] font-bold mb-6">Socials</h3>
             <div className="flex gap-6">
               {[
-                { name: "Instagram", to: "#", icon: Instagram },
-                { name: "Facebook", to: "#", icon: Facebook },
-                { name: "LinkedIn", to: "#", icon: Linkedin },
-                { name: "X", to: "#", icon: Twitter }
+                { name: "Instagram", href: "https://www.instagram.com/usecartlist", icon: Instagram },
+                { name: "Facebook", href: "https://www.facebook.com/usecartlist", icon: Facebook },
+                { name: "LinkedIn", href: "https://www.linkedin.com/company/112261294", icon: Linkedin },
+                { name: "X", href: "https://x.com/usecartlist?s=21", icon: XIcon }
               ].map((social) => (
-                <Link 
+                <a 
                   key={social.name}
-                  to={social.to}
+                  href={social.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="text-gray-400 hover:text-white transition-all transform hover:scale-110"
                   aria-label={social.name}
                 >
                   <social.icon className="w-6 h-6" />
-                </Link>
+                </a>
               ))}
             </div>
           </div>
