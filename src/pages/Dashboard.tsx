@@ -49,7 +49,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "../contexts/AuthContext";
 import { useEffect, useState } from "react";
-import { Logo } from "./Landing";
+import { Logo } from "../components/Logo";
 import { LogPurchaseDrawer } from "../components/LogPurchaseDrawer";
 import { StockpileDetailsModal } from "../components/StockpileDetailsModal";
 import { SuccessModal } from "../components/SuccessModal";

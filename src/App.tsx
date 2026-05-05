@@ -15,6 +15,7 @@ import CustomerDetails from "./pages/CustomerDetails";
 import Settings from "./pages/Settings";
 import ForgotPassword from "./pages/ForgotPassword";
 import PublicCustomerView from "./pages/PublicCustomerView";
+import Contact from "./pages/Contact";
 import AdminLayout from "./pages/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
@@ -89,6 +90,7 @@ export default function App() {
                 <Route path="/" element={<Landing />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="/login" element={<Login />} />
+                <Route path="/contact" element={<Contact />} />
                 <Route path="/admin/login" element={<AdminLogin />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/view/:id" element={<PublicCustomerView />} />

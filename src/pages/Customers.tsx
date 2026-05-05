@@ -39,7 +39,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { Header } from "../components/Header";
 import { RemoveCustomerModal } from "../components/RemoveCustomerModal";
 import { useEffect, useState } from "react";
-import { Logo } from "./Landing";
+import { Logo } from "../components/Logo";
 
 interface Customer {
   phone: string;

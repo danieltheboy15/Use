@@ -19,7 +19,7 @@ import { format, isAfter, addMinutes } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useAuth } from "../contexts/AuthContext";
-import { Logo } from "./Landing";
+import { Logo } from "../components/Logo";
 
 interface PublicStockpileData {
   _id: string;

@@ -52,7 +52,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { RemoveCustomerModal } from "@/components/RemoveCustomerModal";
-import { Logo } from "./Landing";
+import { Logo } from "../components/Logo";
 
 interface CustomerDetailsData {
   customer: {

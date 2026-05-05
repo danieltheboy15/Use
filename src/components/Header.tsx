@@ -29,7 +29,7 @@ import {
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
 import { useNotifications } from "../contexts/NotificationContext";
-import { Logo } from "../pages/Landing";
+import { Logo } from "./Logo";
 import { NotificationDrawer } from "./NotificationDrawer";
 import { useToast } from "../contexts/ToastContext";
 

@@ -4,6 +4,8 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Menu, X, Quote, PlusCircle, MinusCircle, Instagram, Facebook, Linkedin, Twitter } from "lucide-react";
+import { Header } from "@/components/landing/Header";
+import { Footer } from "@/components/landing/Footer";
 
 const ProjectCard: React.FC<{ project: { img: string; mobileImg?: string }; i: number }> = ({ project, i }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -45,30 +47,6 @@ const ProjectCard: React.FC<{ project: { img: string; mobileImg?: string }; i: n
     </div>
   );
 };
-
-export const Logo = ({ className = "" }: { className?: string }) => {
-  const { user } = useAuth();
-  return (
-    <Link to={user ? "/dashboard" : "/"} className={`flex items-center ${className}`}>
-      <img 
-        src="https://raw.githubusercontent.com/DannyYo696/svillage/cfdfd8520f96d8d336b2d00597bb7e5bde1cde14/cl%20logo.png" 
-        alt="Cartlist" 
-        className="h-8 md:h-10 w-auto" 
-        referrerPolicy="no-referrer"
-      />
-    </Link>
-  );
-};
-
-const NavLink: React.FC<{ to: string; children: React.ReactNode; onClick?: () => void }> = ({ to, children, onClick }) => (
-  <Link 
-    to={to} 
-    onClick={onClick}
-    className="text-[13px] font-normal text-gray-700 hover:text-black transition-colors font-sans"
-  >
-    {children}
-  </Link>
-);
 
 const galleryImages = [
   "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?q=80&w=1000&auto=format&fit=crop",
@@ -244,18 +222,7 @@ const FAQItem: React.FC<{ question: string; answer: string; isOpen: boolean; onC
 );
 
 export default function Landing() {
-  const { user } = useAuth();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
-  const [isScrolled, setIsScrolled] = useState(false);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20);
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
 
   const faqs = [
     {
@@ -284,137 +251,9 @@ export default function Landing() {
     }
   ];
   
-  const navLinks = [
-    { label: "About", to: "#" },
-    { label: "Contact", to: "#" },
-  ];
-  
   return (
     <div className="min-h-screen bg-[#FDF8F3] selection:bg-orange-100 selection:text-cartlist-orange overflow-hidden font-sans flex flex-col">
-      {/* Navigation - Ultra Compact */}
-      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? 'md:bg-white bg-[#FDF8F3]/80 backdrop-blur-lg shadow-sm' : 'bg-[#FDF8F3]/60 backdrop-blur-md'} border-b border-black/5`}>
-        <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
-          {/* Mobile Logo */}
-          <div className="md:hidden flex-1">
-            <Logo className="scale-110 origin-left" />
-          </div>
-
-          {/* Desktop: Grouped and Centered */}
-          <div className="hidden md:flex flex-1 justify-center items-center gap-12 lg:gap-20">
-            <div className="flex items-center gap-8 lg:gap-12">
-              {navLinks.map((link) => (
-                <NavLink key={link.label} to={link.to}>{link.label}</NavLink>
-              ))}
-            </div>
-            
-            <Logo />
-            
-            <div className="flex items-center gap-6 lg:gap-12">
-              <Link to="/login" className="text-[13px] font-normal text-cartlist-orange hover:text-orange-600 transition-colors font-sans">
-                Login
-              </Link>
-              <Link to="/register">
-                <Button className="h-[34px] px-5 rounded-full bg-[#F07E48] hover:bg-orange-600 text-white font-normal text-[13px] shadow-sm transition-transform active:scale-95 border-0 font-sans">
-                  Sign up
-                </Button>
-              </Link>
-            </div>
-          </div>
-          
-          {/* Mobile Menu Trigger & Right side spacer for desktop balance */}
-          <div className="flex items-center justify-end md:flex-1 md:hidden">
-            <button 
-              onClick={() => setIsMenuOpen(true)}
-              className="group p-2 relative w-10 h-10 flex flex-col justify-center items-center rounded-full hover:bg-black/[0.03] transition-all active:scale-90"
-            >
-              <div className="flex flex-col gap-1.5 items-end">
-                <motion.span 
-                  animate={isMenuOpen ? { rotate: 45, y: 6, width: "1.5rem" } : { rotate: 0, y: 0, width: "1.5rem" }}
-                  className="h-0.5 bg-gray-900 rounded-full origin-center"
-                />
-                <motion.span 
-                  animate={isMenuOpen ? { opacity: 0, x: 10 } : { opacity: 1, x: 0 }}
-                  className="w-4 h-0.5 bg-gray-900 rounded-full"
-                />
-                <motion.span 
-                  animate={isMenuOpen ? { rotate: -45, y: -6, width: "1.5rem" } : { rotate: 0, y: 0, width: "1.25rem" }}
-                  className="h-0.5 bg-gray-900 rounded-full origin-center"
-                />
-              </div>
-            </button>
-          </div>
-        </div>
-      </nav>
-
-      {/* Mobile Menu Overlay */}
-      <AnimatePresence>
-        {isMenuOpen && (
-          <>
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsMenuOpen(false)}
-              className="fixed inset-0 z-[60] bg-black/10 backdrop-blur-md md:hidden"
-            />
-            {/* Menu Panel */}
-            <motion.div
-              initial={{ x: "100%", opacity: 0.5 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: "100%", opacity: 0.5 }}
-              transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="fixed top-0 right-0 bottom-0 w-[85%] z-[70] bg-white md:hidden flex flex-col shadow-[-20px_0_60px_rgba(0,0,0,0.1)]"
-            >
-              <div className="p-8 flex flex-col h-full">
-                <div className="flex justify-between items-center mb-16">
-                  <Logo />
-                  <button 
-                    onClick={() => setIsMenuOpen(false)}
-                    className="p-2.5 text-gray-900 bg-gray-100/50 hover:bg-gray-100 rounded-full transition-all active:scale-90"
-                  >
-                    <X size={24} />
-                  </button>
-                </div>
-
-                <div className="flex flex-col gap-8">
-                  {[
-                    ...navLinks, 
-                    { label: "Login", to: "/login" }, 
-                    { label: "Sign up", to: "/register" }
-                  ].map((link, i) => (
-                    <motion.div
-                      key={link.label}
-                      initial={{ opacity: 0, y: 20, filter: "blur(10px)" }}
-                      animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                      transition={{ delay: 0.1 + i * 0.08, duration: 0.5 }}
-                    >
-                      <Link 
-                        to={link.to}
-                        onClick={() => setIsMenuOpen(false)}
-                        className={`text-[40px] font-bold font-sans tracking-tight leading-none group flex items-center justify-between ${
-                          link.label === "Login" || link.label === "Sign up" 
-                          ? "text-cartlist-orange" 
-                          : "text-black"
-                        }`}
-                      >
-                        <span>{link.label}</span>
-                        <motion.span 
-                          initial={{ scale: 0 }}
-                          whileHover={{ scale: 1 }}
-                          className="w-3 h-3 bg-current rounded-full" 
-                        />
-                      </Link>
-                    </motion.div>
-                  ))}
-                </div>
-
-                
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      <Header />
 
       {/* Hero Section - Very Compact */}
       <section className="relative pt-24 pb-12 flex flex-col items-center justify-center">
@@ -944,55 +783,7 @@ export default function Landing() {
         </div>
       </section>
 
-      <footer className="pt-24 pb-0 bg-[#0A0D14] text-white relative overflow-hidden">
-        <div className="max-w-7xl mx-auto px-6 mb-20">
-          <div className="flex flex-col md:flex-row justify-between items-start gap-12">
-            
-
-            {/* Company Links */}
-            <div>
-              <h3 className="text-[16px] md:text-[18px] font-bold mb-6">Company</h3>
-              <ul className="flex flex-col md:flex-row gap-4 md:gap-8 text-gray-400 font-medium text-[14px] md:text-[16px]">
-                <li><Link to="#" className="hover:text-white transition-colors">Home</Link></li>
-                <li><Link to="#" className="hover:text-white transition-colors">About us</Link></li>
-                <li><Link to="#" className="hover:text-white transition-colors">Contact us</Link></li>
-              </ul>
-            </div>
-
-            {/* Socials Icons Horizontally */}
-            <div>
-              <h3 className="text-[16px] md:text-[18px] font-bold mb-6">Socials</h3>
-              <div className="flex gap-6">
-                {[
-                  { name: "Instagram", to: "#", icon: Instagram },
-                  { name: "Facebook", to: "#", icon: Facebook },
-                  { name: "LinkedIn", to: "#", icon: Linkedin },
-                  { name: "X", to: "#", icon: Twitter }
-                ].map((social) => (
-                  <Link 
-                    key={social.name}
-                    to={social.to}
-                    className="text-gray-400 hover:text-white transition-all transform hover:scale-110"
-                    aria-label={social.name}
-                  >
-                    <social.icon className="w-6 h-6" />
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Large Brand Image */}
-        <div className="w-full mt-12 select-none pointer-events-none">
-          <img 
-            src="https://res.cloudinary.com/dpsvazol5/image/upload/v1777945310/Frame_1618868206_anma4o.png" 
-            alt="CARTLIST" 
-            className="w-full h-auto object-cover"
-            referrerPolicy="no-referrer"
-          />
-        </div>
-      </footer>
+      <Footer />
 
       <style>{`
         @keyframes marquee-testimonial {
