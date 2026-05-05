@@ -908,14 +908,7 @@ export default function Landing() {
       <footer className="pt-24 pb-0 bg-[#0A0D14] text-white relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-6 mb-20">
           <div className="flex flex-col md:flex-row justify-between items-start gap-12">
-            <div className="flex flex-col gap-6">
-              <img 
-                src="https://raw.githubusercontent.com/DannyYo696/svillage/cfdfd8520f96d8d336b2d00597bb7e5bde1cde14/cl%20logo.png" 
-                alt="Cartlist Logo" 
-                className="h-10 w-auto object-contain brightness-0 invert"
-                referrerPolicy="no-referrer"
-              />
-            </div>
+            
 
             {/* Company Links */}
             <div>
