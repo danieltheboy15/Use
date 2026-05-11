@@ -1,6 +1,7 @@
-const CACHE_NAME = 'stokiply-v1';
+const CACHE_NAME = 'cartlist-v1';
 const ASSETS_TO_CACHE = [
   '/',
+  '/dashboard',
   '/index.html',
   '/manifest.json'
 ];
