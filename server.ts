@@ -186,7 +186,7 @@ const sendWhatsAppNotification = async (to: string, templateName: string, params
     template: {
       name: templateName,
       language: {
-        code: "en" 
+        code: "en_US" 
       },
       components: [
         {
@@ -207,11 +207,11 @@ const sendWhatsAppNotification = async (to: string, templateName: string, params
         "Content-Type": "application/json",
         "X-API-Key": apiKey
       },
-      timeout: 12000
+      timeout: 25000
     });
     
     const fullResponse = response.data;
-    console.log(`[WA] Response for ${templateName}:`, JSON.stringify(fullResponse, null, 2));
+    console.log(`[WA] HTTP Status ${response.status} for ${templateName}:`, JSON.stringify(fullResponse, null, 2));
     
     if (fullResponse.error) {
        throw new Error(fullResponse.error.message || "Meta API internal error");
