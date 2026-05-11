@@ -3,63 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Cartlist - Every Order, In Check</title>
+    <title>cartlist - Every Order, In Check</title>
     <meta name="theme-color" content="#0A0D14" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Cartlist" />
+    <meta name="apple-mobile-web-app-title" content="cartlist" />
     <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/DannyYo696/svillage/b29f8865411712b4c9146e791825c75d2ba7cbe4/cl%20icon.png" />
-    
-    <!-- iOS Splash Screens -->
-    <link rel="apple-touch-startup-image" href="https://raw.githubusercontent.com/DannyYo696/svillage/b29f8865411712b4c9146e791825c75d2ba7cbe4/cl%20icon.png" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
-    <link rel="apple-touch-startup-image" href="https://raw.githubusercontent.com/DannyYo696/svillage/b29f8865411712b4c9146e791825c75d2ba7cbe4/cl%20icon.png" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
-    <link rel="apple-touch-startup-image" href="https://raw.githubusercontent.com/DannyYo696/svillage/b29f8865411712b4c9146e791825c75d2ba7cbe4/cl%20icon.png" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
-    <link rel="apple-touch-startup-image" href="https://raw.githubusercontent.com/DannyYo696/svillage/b29f8865411712b4c9146e791825c75d2ba7cbe4/cl%20icon.png" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
-    <link rel="apple-touch-startup-image" href="https://raw.githubusercontent.com/DannyYo696/svillage/b29f8865411712b4c9146e791825c75d2ba7cbe4/cl%20icon.png" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
-
     <link rel="manifest" href="/manifest.json" />
-    <style>
-      #pwa-splash {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: #0A0D14;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        z-index: 9999;
-        transition: opacity 0.5s ease-out, visibility 0.5s;
-      }
-      #pwa-splash.fade-out {
-        opacity: 0;
-        visibility: hidden;
-      }
-      .splash-logo {
-        width: 120px;
-        height: 120px;
-        margin-bottom: 24px;
-        animation: pulse 2s infinite ease-in-out;
-      }
-      .splash-loader {
-        width: 40px;
-        height: 40px;
-        border: 3px solid rgba(255, 255, 255, 0.1);
-        border-top: 3px solid #ffffff;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-      }
-      @keyframes pulse {
-        0%, 100% { transform: scale(1); opacity: 0.8; }
-        50% { transform: scale(1.05); opacity: 1; }
-      }
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-    </style>
     <script>
       // Register Service Worker
       if ('serviceWorker' in navigator) {
@@ -89,32 +39,9 @@
     </script>
     <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/DannyYo696/svillage/b29f8865411712b4c9146e791825c75d2ba7cbe4/cl%20icon.png" />
   </head>
-  <body class="bg-[#0A0D14] text-white">
-    <div id="pwa-splash">
-      <img src="https://raw.githubusercontent.com/DannyYo696/svillage/b29f8865411712b4c9146e791825c75d2ba7cbe4/cl%20icon.png" alt="cartlist" class="splash-logo" />
-      <div class="splash-loader"></div>
-    </div>
+  <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    <script>
-      // Function to hide splash screen
-      function hideSplashScreen() {
-        const splash = document.getElementById('pwa-splash');
-        if (splash) {
-          splash.classList.add('fade-out');
-          setTimeout(() => {
-            splash.remove();
-          }, 500);
-        }
-      }
-
-      // Hide splash when app is ready - we'll also call this from React if possible,
-      // but as a fallback, hide it after 3 seconds or when window loads.
-      window.addEventListener('load', () => {
-        // Short delay to ensure React has started rendering
-        setTimeout(hideSplashScreen, 1000);
-      });
-    </script>
   </body>
 </html>
 

@@ -87,13 +87,6 @@ const ScrollToTop = () => {
 };
 
 export default function App() {
-  useEffect(() => {
-    // Hide PWA splash screen if it exists
-    if (typeof (window as any).hideSplashScreen === 'function') {
-      (window as any).hideSplashScreen();
-    }
-  }, []);
-
   return (
     <ThemeProvider>
       <AuthProvider>
