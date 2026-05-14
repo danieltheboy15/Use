@@ -215,24 +215,6 @@ const FAQItem: React.FC<{ question: string; answer: string; isOpen: boolean; onC
 
 export default function Landing() {
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
-  const [introPhase, setIntroPhase] = useState<'none' | 'initial' | 'stretching' | 'coloring' | 'falling' | 'done'>('none');
-
-  useEffect(() => {
-    if (introPhase === 'none') {
-      setIntroPhase('initial');
-      const runSequence = async () => {
-        await new Promise(r => setTimeout(r, 600)); // Short initial pause
-        setIntroPhase('stretching');
-        await new Promise(r => setTimeout(r, 1000));
-        setIntroPhase('coloring');
-        await new Promise(r => setTimeout(r, 1000));
-        setIntroPhase('falling');
-        await new Promise(r => setTimeout(r, 1000));
-        setIntroPhase('done');
-      };
-      runSequence();
-    }
-  }, []);
 
   const faqs = [
     {
@@ -267,38 +249,6 @@ export default function Landing() {
 
       {/* Hero Section - Very Compact */}
       <section className="relative pt-24 pb-12 flex flex-col items-center justify-center overflow-hidden">
-        {/* Universal Intro Animation Overlay */}
-        <AnimatePresence>
-          {(introPhase === 'initial' || introPhase === 'stretching' || introPhase === 'coloring') && (
-            <motion.div
-              key="intro-overlay"
-              initial={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.5 }}
-              className="fixed inset-0 z-[100] flex items-start justify-center bg-white overflow-hidden pt-[71px]"
-            >
-              <motion.h1
-                initial={{ color: "#F07E48", scaleY: 1, y: -100, opacity: 0 }}
-                animate={{ 
-                  y: 0,
-                  opacity: 1,
-                  scaleY: (introPhase === 'stretching' || introPhase === 'coloring') ? 2.6 : 1,
-                  color: introPhase === 'coloring' ? "#F2F3F3" : "#F07E48",
-                }}
-                style={{ originY: 0 }}
-                transition={{ 
-                  y: { duration: 0.8, ease: [0.16, 1, 0.3, 1] },
-                  scaleY: { duration: 0.8, ease: [0.33, 1, 0.68, 1] },
-                  color: { duration: 0.8 }
-                }}
-                className="text-[clamp(64px,15vw,280px)] font-black tracking-tighter font-heading leading-none whitespace-nowrap text-center px-4"
-              >
-                CARTLIST
-              </motion.h1>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
         <div className="w-full relative z-10 text-center flex flex-col items-center pt-[15px]">
           {/* Permanent Background Stretched Text */}
           <div className="absolute inset-0 flex items-start justify-center pointer-events-none select-none overflow-hidden pt-[71px] -z-10">
@@ -311,16 +261,7 @@ export default function Landing() {
           </div>
 
           <motion.div
-            initial={{ opacity: 0, y: -100 }}
-            animate={(introPhase === 'falling' || introPhase === 'done')
-              ? { opacity: 1, y: 0, scale: 1 } 
-              : { opacity: 0, y: -100 }
-            }
-            transition={{ 
-              duration: 1.2, 
-              ease: [0.16, 1, 0.3, 1],
-              opacity: { duration: 0.4 }
-            }}
+            initial={{ opacity: 1, y: 0, scale: 1 }}
             className="w-full"
           >
             {/* Extremely compact heading */}

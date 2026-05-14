@@ -32,7 +32,6 @@ import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
 import { NotificationProvider } from "./contexts/NotificationContext";
 import { ToastProvider } from "./contexts/ToastContext";
 import BusinessNameModal from "./components/BusinessNameModal";
-import WelcomeModal from "./components/WelcomeModal";
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 
@@ -93,7 +92,6 @@ export default function App() {
         <NotificationProvider>
           <ToastProvider>
             <BusinessNameModal />
-            <WelcomeModal />
             <Router>
               <ScrollToTop />
               <ThemeSync />
