@@ -250,16 +250,6 @@ export default function Landing() {
       {/* Hero Section - Very Compact */}
       <section className="relative pt-24 pb-12 flex flex-col items-center justify-center overflow-hidden">
         <div className="w-full relative z-10 text-center flex flex-col items-center pt-[15px]">
-          {/* Permanent Background Stretched Text */}
-          <div className="absolute inset-0 flex items-start justify-center pointer-events-none select-none overflow-hidden pt-[71px] -z-10">
-            <h1 
-              className="text-[clamp(64px,15vw,280px)] font-black tracking-tighter font-heading leading-none whitespace-nowrap text-[#F2F3F3] px-4"
-              style={{ transform: 'scaleY(2.6)', transformOrigin: 'top' }}
-            >
-              CARTLIST
-            </h1>
-          </div>
-
           <motion.div
             initial={{ opacity: 1, y: 0, scale: 1 }}
             className="w-full"

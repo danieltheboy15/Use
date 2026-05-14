@@ -22,6 +22,18 @@
         });
       }
 
+      // Safety: detect if we need to purge cache
+      if (window.location.search.includes('purge=true')) {
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(registrations => {
+            for (let registration of registrations) {
+              registration.unregister();
+            }
+            window.location.href = window.location.pathname;
+          });
+        }
+      }
+
       // Fix for "Cannot set property fetch of #<Window> which has only a getter"
       // This protects the native fetch from being overwritten by polyfills.
       (function() {
