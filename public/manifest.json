@@ -1,6 +1,6 @@
 {
-  "name": "cartlist",
-  "short_name": "cartlist",
+  "name": "Stokiply",
+  "short_name": "Stokiply",
   "description": "Log, manage and notify customers of their stockpiles easily.",
   "start_url": "/dashboard",
   "display": "standalone",
