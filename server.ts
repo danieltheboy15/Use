@@ -154,6 +154,52 @@ const sendWelcomeEmail = async (email: string, firstName: string) => {
   }
 };
 
+const sendWhatsAppText = async (to: string, text: string, context?: { stockpileId?: string, vendorId?: string }) => {
+  const apiKey = process.env.KAPSO_API_KEY;
+  const phoneId = process.env.KAPSO_SENDER_ID;
+
+  if (!apiKey || !phoneId) return false;
+
+  let cleaned = to.replace(/\D/g, "");
+  if (cleaned.startsWith("2340")) cleaned = "234" + cleaned.substring(4);
+  else if (cleaned.startsWith("0")) cleaned = "234" + cleaned.substring(1);
+  else if (cleaned.length === 10) cleaned = "234" + cleaned;
+  else if (cleaned.length === 13 && cleaned.startsWith("234234")) cleaned = cleaned.substring(3);
+  
+  const finalTo = cleaned;
+  const url = `https://api.kapso.ai/meta/whatsapp/v18.0/${phoneId}/messages`;
+  
+  const data = {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to: finalTo,
+    type: "text",
+    text: { body: text }
+  };
+
+  try {
+    const response = await axios.post(url, data, {
+      headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+      timeout: 25000
+    });
+    
+    // Log to DB
+    await MessageLog.create({
+      stockpileId: context?.stockpileId,
+      vendorId: context?.vendorId,
+      recipientPhone: finalTo,
+      templateName: "TEXT_REPLY",
+      messageId: response.data.messages?.[0]?.id,
+      status: "sent"
+    });
+    
+    return true;
+  } catch (error) {
+    console.error(`[WA] Text error to ${finalTo}:`, error);
+    return false;
+  }
+};
+
 const sendWhatsAppNotification = async (to: string, templateName: string, params: string[], context?: { stockpileId?: string, vendorId?: string }) => {
   const apiKey = process.env.KAPSO_API_KEY;
   const phoneId = process.env.KAPSO_SENDER_ID;
@@ -165,7 +211,11 @@ const sendWhatsAppNotification = async (to: string, templateName: string, params
 
   // Robust Phone Formatting for Nigeria (234)
   let cleaned = to.replace(/\D/g, "");
-  if (cleaned.startsWith("0")) {
+  
+  // Handle case where user puts 2340...
+  if (cleaned.startsWith("2340")) {
+    cleaned = "234" + cleaned.substring(4);
+  } else if (cleaned.startsWith("0")) {
     cleaned = "234" + cleaned.substring(1);
   } else if (cleaned.length === 10) {
     cleaned = "234" + cleaned;
@@ -186,6 +236,7 @@ const sendWhatsAppNotification = async (to: string, templateName: string, params
     template: {
       name: templateName,
       language: {
+        policy: "deterministic",
         code: "en_US" 
       },
       components: [
@@ -202,13 +253,31 @@ const sendWhatsAppNotification = async (to: string, templateName: string, params
 
   try {
     console.log(`[WA] Sending ${templateName} to ${finalTo}. Params:`, JSON.stringify(params));
-    const response = await axios.post(url, data, {
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-Key": apiKey
-      },
-      timeout: 25000
-    });
+    let response;
+    try {
+      response = await axios.post(url, data, {
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": apiKey
+        },
+        timeout: 25000
+      });
+    } catch (error: any) {
+      // Fallback: If en_US fails with 404, try base "en"
+      if (error.response?.status === 404 && data.template.language.code === "en_US") {
+        console.warn(`[WA] Template ${templateName} not found in en_US, retrying with en...`);
+        data.template.language.code = "en";
+        response = await axios.post(url, data, {
+          headers: {
+            "Content-Type": "application/json",
+            "X-API-Key": apiKey
+          },
+          timeout: 25000
+        });
+      } else {
+        throw error;
+      }
+    }
     
     const fullResponse = response.data;
     console.log(`[WA] HTTP Status ${response.status} for ${templateName}:`, JSON.stringify(fullResponse, null, 2));
@@ -442,11 +511,12 @@ const sendStockpileExtensionNotification = async (vendor: any, stockpile: any) =
     const publicUrl = `${baseUrl}/view/${stockpile._id}`;
 
     // COMPULSORY WhatsApp: Template: stockpile_extended
-    // Params: {{1}}Customer, {{2}}Vendor, {{3}}NewDate, {{4}}Link
+    // Params: {{1}}Customer, {{2}}Vendor, {{3}}Items, {{4}}NewDate, {{5}}Link
+    const itemsSummary = stockpile.items.map((item: any) => `${item.name}(x${item.quantity})`).join(", ");
     const sent = await sendWhatsAppNotification(
       stockpile.customerPhone, 
       "stockpile_extended", 
-      [stockpile.customerName, vendor.businessName, closingDate, publicUrl]
+      [stockpile.customerName, vendor.businessName, itemsSummary, closingDate, publicUrl]
     );
 
     if (prefs.email !== false && stockpile.customerEmail) {
@@ -480,11 +550,12 @@ const sendStockpileClosedNotification = async (vendor: any, stockpile: any) => {
     const publicUrl = `${baseUrl}/view/${stockpile._id}`;
 
     // COMPULSORY WhatsApp: Template: stockpile_closed
-    // Params: {{1}}Customer, {{2}}Vendor, {{3}}Total, {{4}}Link
+    // Params: {{1}}Customer, {{2}}Vendor, {{3}}Items, {{4}}Total, {{5}}Link
+    const itemsSummary = stockpile.items.map((item: any) => `${item.name}(x${item.quantity})`).join(", ");
     const sent = await sendWhatsAppNotification(
       stockpile.customerPhone, 
       "stockpile_closed", 
-      [stockpile.customerName, vendor.businessName, stockpile.totalAmount.toLocaleString(), publicUrl],
+      [stockpile.customerName, vendor.businessName, itemsSummary, stockpile.totalAmount.toLocaleString(), publicUrl],
       { stockpileId: stockpile._id, vendorId: vendor._id }
     );
 
@@ -556,6 +627,13 @@ app.post("/api/webhooks/whatsapp", async (req, res) => {
       
       console.log(`>>> MESSAGE STATUS UPDATE: ID ${msgId} for ${recipient} is now [${msgStatus.toUpperCase()}]`);
       
+      // Update the log in our database
+      await MessageLog.findOneAndUpdate(
+        { messageId: msgId },
+        { status: msgStatus as any },
+        { upsert: false }
+      ).catch(err => console.error("[Webhook] Error updating log status:", err));
+
       if (status.errors) {
         console.error(`!!! WEBHOOK DELIVERY ERROR for ${msgId} (${recipient}):`, JSON.stringify(status.errors));
       }
@@ -617,28 +695,31 @@ app.post("/api/webhooks/whatsapp", async (req, res) => {
           if (vendor) {
             console.log(`[Webhook] Matching vendor found: ${vendor.businessName}`);
             
-            const neverSent = !stockpile.lastWhatsAppTemplateSent;
-            const includesKeywords = text.includes("view") || text.includes("stockpile");
-            const hasExplicitId = !!explicitlyProvidedId;
-            
-            if (neverSent || includesKeywords || hasExplicitId) {
-               console.log(`[Webhook] Sending notification. Reason: neverSent=${neverSent}, keywords=${includesKeywords}, hasId=${hasExplicitId}`);
-               
-               let success = false;
-               if (stockpile.status === "active") {
-                 success = await sendStockpileCreatedNotification(vendor, stockpile).catch(() => false);
-               } else if (stockpile.status === "closed") {
-                 success = await sendStockpileClosedNotification(vendor, stockpile).catch(() => false);
-               }
-               
-               console.log(`[Webhook] Notification result: ${success ? "SUCCESS" : "FAILED"}`);
-            } else {
-               console.log(`[Webhook] Conditions not met for auto-send. lastWhatsAppTemplateSent="${stockpile.lastWhatsAppTemplateSent}"`);
+            // Generate link
+            const baseUrl = (process.env.APP_URL || "https://www.usecartlist.com").replace(/\/$/, "");
+            const publicUrl = `${baseUrl}/view/${stockpile._id}`;
+            const businessName = vendor.businessName || "your vendor";
+
+            // 1. Send immediate TEXT reply (since we're in the 24h window)
+            const replyText = `Hi ${stockpile.customerName}! Here is the link to view your stockpile from ${businessName}: ${publicUrl}`;
+            await sendWhatsAppText(from, replyText, { stockpileId: stockpile._id.toString(), vendorId: vendor._id.toString() });
+
+            // 2. Trigger the appropriate TEMPLATE notification (even if sent before)
+            // This ensures templates are working and reinforces the communication.
+            if (stockpile.status === "active") {
+              await sendStockpileCreatedNotification(vendor, stockpile).catch(() => false);
+            } else if (stockpile.status === "closed") {
+              await sendStockpileClosedNotification(vendor, stockpile).catch(() => false);
             }
           } else {
             console.error(`[Webhook] ERROR: Vendor ${stockpile.vendorId} not found for stockpile ${stockpile._id}`);
           }
         } else {
+          // Fallback: If no stockpile found, but they said "view" or "stockpile", send a generic response
+          if (text.includes("view") || text.includes("stockpile") || text.includes("hi")) {
+            await sendWhatsAppText(from, "Hi there! Welcome to Cartlist. We couldn't find an active stockpile linked to this number. Please contact your vendor to start one!")
+              .catch(err => console.error("Fallback text failed:", err));
+          }
           console.log(`[Webhook] No suitable stockpile found for phone suffix ending in ${shortPhone}`);
         }
       } catch (err) {
@@ -813,7 +894,7 @@ const messageLogSchema = new mongoose.Schema({
   vendorId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   recipientPhone: { type: String, required: true },
   templateName: { type: String, required: true },
-  status: { type: String, enum: ["sent", "delivered", "failed", "read"], default: "sent" },
+  status: { type: String, enum: ["sent", "delivered", "failed", "read", "accepted", "deleted"], default: "sent" },
   error: { type: String },
   messageId: { type: String },
   createdAt: { type: Date, default: Date.now }

@@ -6,6 +6,7 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Landing from "./pages/Landing";
+import WaitlistLanding from "./pages/WaitlistLanding";
 import Register from "./pages/Register";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -97,6 +98,7 @@ export default function App() {
               <ThemeSync />
               <Routes>
                 <Route path="/" element={<Landing />} />
+                <Route path="/landingpage" element={<WaitlistLanding />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/contact" element={<Contact />} />

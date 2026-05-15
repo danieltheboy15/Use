@@ -1,878 +1,290 @@
-import React, { useEffect, useRef, useState } from "react";
-import { motion, useAnimationFrame, useMotionValue, useTransform, useScroll, AnimatePresence } from "motion/react";
+import React, { useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import { 
+  Box, 
+  Brain, 
+  Globe, 
+  Instagram, 
+  Linkedin, 
+  Facebook, 
+  Twitter,
+  CheckCircle2,
+  X,
+  Sparkles,
+  PartyPopper,
+  TreePine
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { Button } from "@/components/ui/button";
-import { Menu, X, Quote, PlusCircle, MinusCircle, Instagram, Facebook, Linkedin, Twitter } from "lucide-react";
-import { Header } from "@/components/landing/Header";
-import { Footer } from "@/components/landing/Footer";
 
-const ProjectCard: React.FC<{ project: { img: string; mobileImg?: string }; i: number }> = ({ project, i }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({
-    target: containerRef,
-    offset: ["start start", "end start"]
-  });
-
-  // Dramatic shrink as it scrolls away
-  const scale = useTransform(scrollYProgress, [0, 1], [1, 0.7]);
-  const rotateX = useTransform(scrollYProgress, [0, 1], [0, -35]); // Stronger bending effect
-
+export const Logo = ({ className = "" }: { className?: string }) => {
+  const { user } = useAuth();
   return (
-    <div 
-      ref={containerRef} 
-      className="sticky top-20 md:top-24 w-full max-w-[392px] md:max-w-[1200px] h-[300px] md:h-[600px] lg:h-[680px] mb-[4vh] md:mb-[5vh] flex items-center justify-center mx-auto px-4 md:px-0"
-      style={{ zIndex: i + 1 }}
-    >
-      <motion.div
-        style={{ scale, rotateX, transformPerspective: 1200 }}
-        className="relative w-full h-full rounded-[24px] md:rounded-[48px] lg:rounded-[64px] overflow-hidden shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)] bg-white/5 backdrop-blur-xl border border-white/10"
-      >
-        {/* Desktop view uses img */}
-        <img 
-          src={project.img} 
-          alt="Showcase" 
-          className="hidden md:block w-full h-full object-cover"
-          referrerPolicy="no-referrer"
-        />
-        
-        {/* Mobile view uses a container div with background image */}
-        <div 
-          className="md:hidden w-full h-full bg-cover bg-center bg-no-repeat"
-          style={{ 
-            backgroundImage: `url(${project.mobileImg || project.img})`
-          }}
-        />
-      </motion.div>
-    </div>
+    <Link to={user ? "/dashboard" : "/"} className={`flex items-center gap-3 ${className}`}>
+      <img 
+        src="https://raw.githubusercontent.com/DannyYo696/svillage/cfdfd8520f96d8d336b2d00597bb7e5bde1cde14/cl%20logo.png" 
+        alt="Cartlist Logo" 
+        className="h-10 w-auto object-contain"
+        referrerPolicy="no-referrer"
+      />
+    </Link>
   );
 };
 
-const galleryImages = [
-  "https://res.cloudinary.com/dpsvazol5/image/upload/v1777991807/IMG_8390_30_e2nqcv.png",
-  "https://res.cloudinary.com/dpsvazol5/image/upload/v1777996740/IMG_8409_30_wa3rjm.png",
-  "https://res.cloudinary.com/dpsvazol5/image/upload/v1777992723/IMG_8392_30_odhxde.png",
-  "https://res.cloudinary.com/dpsvazol5/image/upload/v1777993161/IMG_8398_30_j9q5w5.png",
-  "https://res.cloudinary.com/dpsvazol5/image/upload/v1777992863/IMG_8394_30_o50sek.png",
-  "https://res.cloudinary.com/dpsvazol5/image/upload/v1777993015/IMG_8397_30_zjnzgk.png",
-];
-
-const CurvedHeroGallery = () => {
-  const scrollX = useMotionValue(0);
-  const [dims, setDims] = useState({ cardWidth: 240, gap: 32 });
-
-  useEffect(() => {
-    const handleResize = () => {
-      const isMobile = window.innerWidth < 768;
-      setDims({
-        cardWidth: isMobile ? 180 : 240,
-        gap: 32
-      });
-    };
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  const { cardWidth, gap } = dims;
-  const totalItemsWidth = galleryImages.length * (cardWidth + gap);
-  
-  const items = [...galleryImages, ...galleryImages, ...galleryImages, ...galleryImages, ...galleryImages];
-
-  useAnimationFrame((_, delta) => {
-    const speed = 80; 
-    let nextX = scrollX.get() - (delta / 1000) * speed;
-    if (nextX <= -totalItemsWidth) {
-      nextX += totalItemsWidth;
-    }
-    scrollX.set(nextX);
-  });
-
-  return (
-    <div className="relative w-full h-[420px] md:h-[550px] overflow-hidden flex items-center justify-center [perspective:1500px] mt-4 md:mt-0">
-      <motion.div 
-        className="flex gap-8 absolute left-0"
-        style={{ x: scrollX }}
-      >
-        {items.map((img, i) => (
-          <IndividualCard 
-            key={i} 
-            img={img} 
-            scrollX={scrollX} 
-            offset={i * (cardWidth + gap)} 
-            cardWidth={cardWidth} 
-          />
-        ))}
-      </motion.div>
-    </div>
-  );
-};
-
-const IndividualCard: React.FC<{ img: string; scrollX: any; offset: number; cardWidth: number }> = ({ img, scrollX, offset, cardWidth }) => {
-  const containerWidth = typeof window !== 'undefined' ? window.innerWidth : 1200;
-  
-  const relativeX = useTransform(scrollX, (v) => {
-    const center = containerWidth / 2;
-    const currentX = (v as number) + offset + cardWidth / 2;
-    return (currentX - center) / (containerWidth / 2);
-  });
-
-  const y = useTransform(relativeX, [-1.5, 0, 1.5], [80, 0, 80]);
-  const rotateY = useTransform(relativeX, [-1, 0, 1], [45, 0, -45]);
-  const rotateZ = useTransform(relativeX, [-1, 0, 1], [-8, 0, 8]);
-  const opacity = useTransform(relativeX, [-2, -1.2, 0, 1.2, 2], [0, 1, 1, 1, 0]);
-
-  return (
-    <motion.div
-      style={{ 
-        y, 
-        rotateY, 
-        rotateZ, 
-        opacity,
-        transformStyle: "preserve-3d",
-      }}
-      className="w-[180px] h-[260px] md:w-[240px] md:h-[360px] rounded-[32px] md:rounded-[48px] overflow-hidden shadow-[0_40px_80px_rgba(0,0,0,0.2)] shrink-0 border-4 border-white/20 bg-gray-900"
-    >
-      <img src={img} alt="Gallery" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-    </motion.div>
-  );
-};
-
-const FloatingBubble = ({ text, className, delay = 0 }: { text: string; className: string; delay?: number }) => (
-  <motion.div
-    initial={{ opacity: 0, scale: 0.5, y: 20 }}
-    whileInView={{ opacity: 1, scale: 1, y: 0 }}
-    animate={{ 
-      y: [0, -8, 0],
-    }}
-    transition={{ 
-      initial: { delay, duration: 0.5 },
-      animate: { duration: 3, repeat: Infinity, ease: "easeInOut", delay: delay * 2 }
-    }}
-    viewport={{ once: true }}
-    className={`absolute z-20 bg-white/95 backdrop-blur-md px-5 py-2.5 rounded-full shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)] border border-white/20 text-gray-800 font-bold text-[13px] md:text-[15px] whitespace-nowrap ${className}`}
+const SuccessPopup = ({ onClose }: { onClose: () => void }) => (
+  <motion.div 
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    exit={{ opacity: 0 }}
+    className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/40 backdrop-blur-sm"
   >
-    {text}
+    <motion.div 
+      initial={{ scale: 0.9, opacity: 0, y: 20 }}
+      animate={{ scale: 1, opacity: 1, y: 0 }}
+      exit={{ scale: 0.9, opacity: 0, y: 20 }}
+      className="bg-white rounded-[40px] p-8 md:p-12 max-w-lg w-full relative overflow-hidden shadow-2xl"
+    >
+      {/* Decorative background elements */}
+      <div className="absolute -top-10 -right-10 w-40 h-40 bg-orange-100 rounded-full blur-3xl opacity-50" />
+      <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-cartlist-orange/10 rounded-full blur-3xl opacity-50" />
+      
+      <button 
+        onClick={onClose}
+        className="absolute top-6 right-6 p-2 rounded-full hover:bg-gray-100 transition-colors"
+      >
+        <X className="w-6 h-6 text-gray-400" />
+      </button>
+
+      <div className="relative z-10 text-center">
+        <div className="w-20 h-20 bg-cartlist-orange/10 rounded-3xl flex items-center justify-center mx-auto mb-8 rotate-6">
+          <PartyPopper className="w-10 h-10 text-cartlist-orange" />
+        </div>
+
+        <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-4 tracking-tight">You're on the list! 🎉</h2>
+        <p className="text-lg text-muted-foreground mb-10 leading-relaxed font-medium">
+          Thanks for joining our early access waitlist. We'll hit you up as soon as we're ready to flip the switch!
+        </p>
+
+        <div className="space-y-4">
+          <p className="text-sm font-black text-gray-400 uppercase tracking-widest">Connect with us</p>
+          <a 
+            href="https://linktr.ee/usecartlist" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-3 w-full h-14 rounded-2xl bg-[#25D366]/5 border-2 border-[#25D366]/20 text-[#25D366] hover:bg-[#25D366]/10 transition-all font-bold group"
+          >
+            <TreePine className="w-5 h-5 group-hover:scale-110 transition-transform" />
+            <span>Follow Our Socials</span>
+          </a>
+        </div>
+
+        <Button 
+          onClick={onClose}
+          className="mt-10 w-full h-14 rounded-2xl bg-black hover:bg-gray-800 text-white font-bold text-lg"
+        >
+          Sweet, let's go!
+        </Button>
+      </div>
+    </motion.div>
   </motion.div>
 );
 
-const TestimonialCard: React.FC<{ quote: string; author: string; img: string }> = ({ quote, author, img }) => (
-  <div
-    className="bg-[#0A0D14] rounded-[32px] md:rounded-[48px] p-8 md:p-10 flex flex-col md:flex-row items-center gap-6 md:gap-10 w-[320px] md:w-[700px] h-[500px] md:h-[380px] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.4)] shrink-0 select-none"
+const FeatureCard = ({ icon: Icon, title, description }: { icon: any, title: string, description: string }) => (
+  <motion.div 
+    whileHover={{ y: -5 }}
+    className="bg-white p-8 rounded-3xl border border-orange-100 shadow-sm flex flex-col items-center text-center relative overflow-hidden"
   >
-    <div className="flex-1 order-2 md:order-1 flex flex-col justify-center text-left">
-      <Quote className="w-8 h-8 text-[#F07E48] mb-4 fill-[#F07E48]/20" />
-      <p className="text-white text-[14px] md:text-[18px] font-medium leading-relaxed mb-6 line-clamp-6 md:line-clamp-none">
-        {quote}
-      </p>
-      <div className="text-gray-400 text-[12px] md:text-[14px] font-bold uppercase tracking-wider">
-        {author}
-      </div>
+    <div className="w-12 h-12 bg-black rounded-full flex items-center justify-center mb-6 z-10">
+      <Icon className="text-white w-6 h-6" />
     </div>
-    <div className="w-[160px] h-[160px] md:w-[220px] md:h-full rounded-[24px] overflow-hidden order-1 md:order-2 shrink-0">
-      <img 
-        src={img} 
-        alt={author} 
-        className="w-full h-full object-cover grayscale-[0.2] hover:grayscale-0 transition-all duration-500"
-        referrerPolicy="no-referrer"
-      />
-    </div>
-  </div>
+    <h3 className="text-2xl font-bold mb-4 font-heading">{title}</h3>
+    <p className="text-muted-foreground leading-relaxed">{description}</p>
+    <div className="absolute top-0 left-0 w-full h-1 bg-orange-50 opacity-0 hover:opacity-100 transition-opacity" />
+  </motion.div>
 );
 
-const FAQItem: React.FC<{ question: string; answer: string; isOpen: boolean; onClick: () => void }> = ({ question, answer, isOpen, onClick }) => (
-  <div className="border-b border-gray-100 py-6">
-    <button 
-      onClick={onClick}
-      className="w-full flex items-center justify-between text-left group transition-all"
-    >
-      <span className="text-[16px] md:text-[18px] font-bold text-gray-900 group-hover:text-[#F07E48] transition-colors">
-        {question}
-      </span>
-      {isOpen ? (
-        <MinusCircle className="w-6 h-6 text-[#F07E48] shrink-0" />
-      ) : (
-        <PlusCircle className="w-6 h-6 text-green-500 shrink-0" />
-      )}
-    </button>
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          initial={{ height: 0, opacity: 0 }}
-          animate={{ height: "auto", opacity: 1 }}
-          exit={{ height: 0, opacity: 0 }}
-          transition={{ duration: 0.3, ease: "easeInOut" }}
-          className="overflow-hidden"
-        >
-          <p className="pt-4 text-gray-500 text-[14px] md:text-[16px] leading-[1.6] max-w-2xl">
-            {answer}
-          </p>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  </div>
-);
+export default function WaitlistLanding() {
+  const [email, setEmail] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
-export default function Landing() {
-  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
-  const [introPhase, setIntroPhase] = useState<'none' | 'initial' | 'stretching' | 'coloring' | 'falling' | 'done'>('none');
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
 
-  useEffect(() => {
-    if (introPhase === 'none') {
-      setIntroPhase('initial');
-      const runSequence = async () => {
-        await new Promise(r => setTimeout(r, 600)); // Short initial pause
-        setIntroPhase('stretching');
-        await new Promise(r => setTimeout(r, 1000));
-        setIntroPhase('coloring');
-        await new Promise(r => setTimeout(r, 1000));
-        setIntroPhase('falling');
-        await new Promise(r => setTimeout(r, 1000));
-        setIntroPhase('done');
-      };
-      runSequence();
+    setIsSubmitting(true);
+    try {
+      const response = await fetch("/api/waitlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email })
+      });
+
+      if (response.ok) {
+        setShowSuccess(true);
+        setEmail("");
+      }
+    } catch (err) {
+      console.error("Waitlist error:", err);
+    } finally {
+      setIsSubmitting(false);
     }
-  }, []);
+  };
 
-  const faqs = [
-    {
-      question: "Does my customer need to sign up?",
-      answer: "No, they don't need to sign up. you just log in their purchase and log their stock and then you can manage their stockpile and any time."
-    },
-    {
-      question: "Do i need to change how i collect payment?",
-      answer: "No, you can continue using your existing payment methods. Cartlist helps you manage the stockpile data, not the payment processing itself."
-    },
-    {
-      question: "Is it available on mobile?",
-      answer: "Yes! Cartlist is fully responsive and works perfectly on all mobile devices and tablets, allowing you to manage your business on the go."
-    },
-    {
-      question: "How does the WhatsApp Bot work?",
-      answer: "Our WhatsApp bot connects directly to your record system. Customers can send simple commands to track their orders or check availability, providing instant support without your manual intervention."
-    },
-    {
-      question: "How does billing work?",
-      answer: "We offer transparent, simple billing plans. You can choose a tier that fits your volume of stockpile management needs, with no hidden fees."
-    },
-    {
-      question: "How do I change my account email?",
-      answer: "You can change your account email easily through the profile settings in your dashboard. Simply enter the new email and verify it to update your login credentials."
-    }
-  ];
-  
   return (
-    <div className="min-h-screen bg-white selection:bg-orange-100 selection:text-cartlist-orange overflow-hidden font-sans flex flex-col">
-      <Header />
+    <div className="min-h-screen selection:bg-orange-100 selection:text-cartlist-orange">
+      <AnimatePresence>
+        {showSuccess && <SuccessPopup onClose={() => setShowSuccess(false)} />}
+      </AnimatePresence>
 
-      {/* Hero Section - Very Compact */}
-      <section className="relative pt-24 pb-12 flex flex-col items-center justify-center overflow-hidden">
-        {/* Universal Intro Animation Overlay */}
-        <AnimatePresence>
-          {(introPhase === 'initial' || introPhase === 'stretching' || introPhase === 'coloring') && (
-            <motion.div
-              key="intro-overlay"
-              initial={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.5 }}
-              className="fixed inset-0 z-[100] flex items-start justify-center bg-white overflow-hidden pt-[71px]"
-            >
-              <motion.h1
-                initial={{ color: "#F07E48", scaleY: 1, y: -100, opacity: 0 }}
-                animate={{ 
-                  y: 0,
-                  opacity: 1,
-                  scaleY: (introPhase === 'stretching' || introPhase === 'coloring') ? 2.6 : 1,
-                  color: introPhase === 'coloring' ? "#F2F3F3" : "#F07E48",
-                }}
-                style={{ originY: 0 }}
-                transition={{ 
-                  y: { duration: 0.8, ease: [0.16, 1, 0.3, 1] },
-                  scaleY: { duration: 0.8, ease: [0.33, 1, 0.68, 1] },
-                  color: { duration: 0.8 }
-                }}
-                className="text-[clamp(64px,15vw,280px)] font-black tracking-tighter font-heading leading-none whitespace-nowrap text-center px-4"
-              >
-                CARTLIST
-              </motion.h1>
-            </motion.div>
-          )}
-        </AnimatePresence>
+      {/* Navigation */}
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-orange-50">
+        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-center">
+          <Logo />
+        </div>
+      </nav>
 
-        <div className="w-full relative z-10 text-center flex flex-col items-center pt-[15px]">
-          {/* Permanent Background Stretched Text */}
-          <div className="absolute inset-0 flex items-start justify-center pointer-events-none select-none overflow-hidden pt-[71px] -z-10">
-            <h1 
-              className="text-[clamp(64px,15vw,280px)] font-black tracking-tighter font-heading leading-none whitespace-nowrap text-[#F2F3F3] px-4"
-              style={{ transform: 'scaleY(2.6)', transformOrigin: 'top' }}
-            >
-              CARTLIST
-            </h1>
-          </div>
-
+      {/* Hero Section */}
+      <section className="relative pt-40 pb-20 overflow-hidden">
+        <div className="absolute inset-0 grid-bg opacity-40 -z-10" />
+        <div className="max-w-4xl mx-auto px-6 text-center">
           <motion.div
-            initial={{ opacity: 0, y: -100 }}
-            animate={(introPhase === 'falling' || introPhase === 'done')
-              ? { opacity: 1, y: 0, scale: 1 } 
-              : { opacity: 0, y: -100 }
-            }
-            transition={{ 
-              duration: 1.2, 
-              ease: [0.16, 1, 0.3, 1],
-              opacity: { duration: 0.4 }
-            }}
-            className="w-full"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
           >
-            {/* Extremely compact heading */}
-            <h1 className="text-[48px] md:text-[64px] lg:text-[76px] font-black tracking-[-0.05em] leading-[1.1] text-[#1A1A1A] mb-4 flex flex-col items-center gap-2 font-heading">
-              <span>Every order</span>
-              <span className="flex items-center gap-2">
-                in <span className="text-cartlist-orange">check</span>
-              </span>
+            <div className="flex flex-col md:flex-row items-center justify-center gap-2 md:gap-4 mb-8">
+              <span className="text-5xl md:text-7xl font-bold tracking-tight">Welcome to</span>
+              <div className="relative inline-block px-8 py-2">
+                <div className="absolute inset-0 border-2 border-cartlist-orange rounded-full -rotate-2" />
+                <span className="text-5xl md:text-7xl font-bold text-cartlist-orange">Cartlist</span>
+              </div>
+            </div>
+            
+            <h1 className="text-4xl md:text-6xl font-bold tracking-tight leading-[1.1] mb-8 font-heading">
+              Track your stockpile orders, stay organized, and manage everything in one place.
             </h1>
+            
+            <p className="text-lg md:text-xl text-muted-foreground mb-12 max-w-2xl mx-auto">
+              No more missed or lost stockpile orders. No more confusion.
+            </p>
 
-            {/* Arc-scrolling Gallery */}
-            <CurvedHeroGallery />
-
-            <div className="max-w-xl mx-auto flex flex-col items-center gap-3 px-4">
-              <p className="text-[14px] md:text-[15px] mt-7 text-gray-500 font-medium leading-[1.4] max-w-sm mx-auto">
-                Track your stockpile orders, stay organized, and manage everything in one place.
-              </p>
-
-              <Link to="/register">
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <Button className="h-[48px] px-10 rounded-[16px] bg-[#F07E48] hover:bg-orange-600 text-white text-[15px] font-medium-black shadow-lg shadow-orange-300/20 border-0">
-                    Get started
-                  </Button>
-                </motion.div>
-              </Link>
-            </div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Project Showcase Section */}
-      <section className="px-6 flex flex-col items-center py-20 lg:py-32 bg-white relative z-20">
-        <h2 className="text-[20px] md:text-[24px] lg:text-[28px] font-black leading-[1.1] text-[#1A1A1A] max-w-2xl mx-auto text-center mb-12 font-semibold tracking-tight">
-          With Cartlist, we want you to feel less stress in managing your customers heavy stockpile in one place
-        </h2>
-        {[
-          { 
-            img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777936742/Component_9_lhgyen.png",
-            mobileImg: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777990019/Group_40_liwu2r.png"
-          },
-          { 
-            img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777967539/Group_30_rase2l.png",
-            mobileImg: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777990685/Group_41_dpnsv3.png"
-          },
-          { 
-            img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777967656/Group_29_nvtlcp.png",
-            mobileImg: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777990796/Group_42_qzqyed.png"
-          },
-          { 
-            img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777967872/Group_32_nmrbpa.png",
-            mobileImg: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777990891/Group_43_jxw33e.png"
-          },
-          { 
-            img: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777967870/Group_33_kwnhof.png",
-            mobileImg: "https://res.cloudinary.com/dpsvazol5/image/upload/v1777990957/Group_44_cbjkh8.png"
-          }
-        ].map((project, i) => (
-          <ProjectCard key={i} project={project} i={i} />
-        ))}
-      </section>
-
-      {/* How It Works Section */}
-      <section className="bg-[#0A0D14] pt-40 pb-32 px-6 relative overflow-hidden">
-        {/* Decorative Swirl Patterns */}
-        <div className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-20">
-          <svg className="w-full h-full" viewBox="0 0 1440 800" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M-100 200 C 50 50, 400 150, 500 400" stroke="#F07E48" strokeWidth="60" strokeLinecap="round" fill="none" />
-            <path d="M400 600 C 600 400, 900 600, 1100 300" stroke="#F07E48" strokeWidth="80" strokeLinecap="round" fill="none" />
-            <path d="M1200 100 C 1300 300, 1500 200, 1600 500" stroke="#F07E48" strokeWidth="50" strokeLinecap="round" fill="none" />
-          </svg>
-        </div>
-
-        <div className="max-w-7xl mx-auto relative z-10">
-          <motion.h2 
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-[40px] md:text-[64px] font-black text-white text-center mb-40 font-semibold"
-          >
-            How it works
-          </motion.h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-4 lg:gap-8">
-            {[
-              {
-                number: "1",
-                title: "account",
-                rotate: -12,
-                desc: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
-              },
-              {
-                number: "2",
-                title: "Log",
-                rotate: 8,
-                desc: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
-              },
-              {
-                number: "3",
-                title: "Notify",
-                rotate: -6,
-                desc: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
-              },
-              {
-                number: "4",
-                title: "Notify",
-                rotate: 15,
-                desc: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
-              }
-            ].map((step, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 150, rotate: step.rotate * 2, scale: 0.9 }}
-                whileInView={{ opacity: 1, y: 0, rotate: 0, scale: 1 }}
-                transition={{ 
-                  delay: i * 0.1, 
-                  duration: 1.2, 
-                  type: "spring",
-                  bounce: 0.4
-                }}
-                viewport={{ once: true }}
-                className="bg-[#16191F] p-8 md:p-10 rounded-[32px] border border-white/5 flex flex-col h-full shadow-2xl relative"
-                style={{ originY: 0 }}
-              >
-                <div className="mb-6">
-                  <span className="text-[100px] md:text-[120px] font-black leading-none tracking-tighter bg-gradient-to-b from-white to-white/10 bg-clip-text text-transparent">
-                    {step.number}
-                  </span>
-                </div>
-                <h3 className="text-white text-[28px] font-bold mb-4 font-heading">{step.title}</h3>
-                <p className="text-gray-400 text-[14px] leading-relaxed">
-                  {step.desc}
-                </p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Pricing Section */}
-      <section className="bg-[#0A0D14] pt-32 pb-0 px-6 relative overflow-hidden">
-        {/* Background Decorative Accent */}
-        <div className="absolute -bottom-48 -right-48 w-[600px] h-[600px] bg-[#F07E48]/10 rounded-full blur-[120px]" />
-        
-        <div className="max-w-7xl mx-auto relative z-10">
-          <motion.h2 
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-[32px] md:text-[48px] font-semibold text-white text-center mb-20 font-heading"
-          >
-            Pricing we offer
-          </motion.h2>
-
-          <div className="relative border-t border-b border-white/10">
-            {/* Horizontal Grid Markers */}
-            <div className="absolute -top-3 -left-3 text-white/20 select-none">+</div>
-            <div className="absolute -top-3 -right-3 text-white/20 select-none">+</div>
-            <div className="absolute -bottom-3 -left-3 text-white/20 select-none">+</div>
-            <div className="absolute -bottom-3 -right-3 text-white/20 select-none">+</div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 divide-y md:divide-y-0 lg:divide-x divide-white/10 border-l border-r border-white/10">
-              {[
-                {
-                  name: "Free Plan",
-                  price: "0 ",
-                  features: ["Realtime activity log", "Email alert", "WhatsApp copy", "15 Capped logged customers"],
-                  button: "Start free plan"
-                },
-                {
-                  name: "Starter Plan",
-                  price: "3,500 ",
-                  features: ["Realtime activity log", "Email alert", "24/7 support", "WhatsApp Alert", "50 Capped logged customers"],
-                  button: "Start starter plan"
-                },
-                {
-                  name: "Pro Plan",
-                  price: "5,000 ",
-                  features: ["Realtime activity log", "Email alert", "24/7 support", "WhatsApp Alert", "100 Capped logged customers"],
-                  button: "Start pro plan"
-                },
-                {
-                  name: "Enterprise Plan",
-                  price: "10,000 ",
-                  features: ["Realtime activity log", "Email alert", "24/7 support", "WhatsApp Alert", "Data analysis report", "Custom logged based on user"],
-                  button: "Start ent plan"
-                }
-              ].map((plan, i) => (
-                <motion.div 
-                  key={i}
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ 
-                    initial: { delay: i * 0.1, duration: 0.6 },
-                    whileHover: { duration: 0 } 
-                  }}
-                  viewport={{ once: true }}
-                  whileHover={{ 
-                    backgroundColor: "rgba(80, 41, 16, 1)",
-                    borderColor: "rgba(240, 126, 72, 1)",
-                    scale: 1.02,
-                    zIndex: 20
-                  }}
-                  className="p-8 md:p-10 flex flex-col h-full group border border-transparent rounded-[32px] md:rounded-none relative"
-                >
-                  <h3 className="text-white text-[22px] md:text-[24px] font-bold mb-8 font-heading whitespace-nowrap">{plan.name}</h3>
-                  
-                  <div className="mb-10 min-h-[60px] flex items-baseline gap-1">
-                    {plan.price ? (
-                      <>
-                        <span className="text-[#F07E48] text-[32px] md:text-[36px] font-bold leading-none tracking-tighter">N{plan.price}/</span>
-                        <span className="text-gray-500 group-hover:text-white/60 text-[13px] font-medium uppercase tracking-wider">Month</span>
-                      </>
-                    ) : (
-                      <div className="h-10" />
-                    )}
-                  </div>
-
-                  <div className="mb-12 flex-grow">
-                    <p className="text-white text-[16px] font-bold mb-6">What is in for you</p>
-                    <ul className="space-y-4">
-                      {plan.features.map((feature, idx) => (
-                        <li key={idx} className="flex items-start gap-3 text-white/70 group-hover:text-white transition-colors">
-                          <span className="text-[#F07E48] group-hover:text-white font-bold text-lg leading-none">•</span>
-                          <span className="text-[14px] font-medium leading-normal">{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <button className="w-full py-5 rounded-full border border-white/20 text-white font-bold text-[16px] group-hover:bg-white group-hover:text-[#502910] group-hover:border-white transition-all duration-300">
-                    {plan.button}
-                  </button>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* WhatsApp Integration Section */}
-      <section className="bg-white py-12 px-6 relative overflow-hidden border-t border-black/5">
-        {/* Background Pattern Overlay - Light version */}
-        <div 
-          className="absolute inset-0 pointer-events-none opacity-[0.6]"
-          style={{ 
-            backgroundImage: "url('https://res.cloudinary.com/dpsvazol5/image/upload/v1777942695/WhatsApp_Pattern_light_z3z5zu.png')",
-            backgroundRepeat: "repeat",
-            backgroundSize: "600px"
-          }}
-        />
-        <div className="max-w-7xl mx-auto relative z-10">
-          <motion.div 
-            initial={{ opacity: 0, y: 40 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="bg-[#16191F] rounded-[48px] p-8 md:p-12 lg:p-16 relative overflow-hidden flex flex-col lg:flex-row items-center justify-between gap-8 border border-white/5 h-auto lg:h-[652px] shadow-[0_40px_80px_-20px_rgba(0,0,0,0.3)]"
-          >
-            {/* Content Left */}
-            <div className="flex-1 w-full z-10 text-left lg:text-left flex flex-col justify-start lg:justify-center h-full lg:pt-32">
-              {/* Heading and Logo wrapped for mobile header feel */}
-              <div className="flex items-start justify-between w-full lg:block mb-8 lg:mb-6">
-                <h2 className="text-[25px] md:text-[32px] lg:text-[40px] font-black text-white leading-[1.1] font-heading max-w-[240px] md:max-w-none">
-                  Prefer to manage via WhatsApp?
-                </h2>
-                
-                {/* Mobile version of the 3D WhatsApp Logo - Positioned to the right of title */}
-                <motion.div
-                  animate={{ y: [0, -8, 0], rotate: [-2, 2, -2] }}
-                  transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-                  className="lg:hidden relative w-24 h-24 md:w-32 md:h-32 -mt-2 shrink-0"
-                >
-                  <img 
-                    src="https://res.cloudinary.com/dpsvazol5/image/upload/v1777942132/image_26_ladnnn.png"
-                    alt="WhatsApp 3D" 
-                    className="w-full h-full object-contain filter drop-shadow-[0_15px_30px_rgba(34,197,94,0.4)]"
+            {/* Avatar Stack */}
+            <div className="flex flex-col items-center gap-4 mb-12">
+              <div className="flex -space-x-3">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <img
+                    key={i}
+                    src={`https://picsum.photos/seed/user${i}/100/100`}
+                    alt="User"
+                    className="w-10 h-10 rounded-full border-2 border-background object-cover"
                     referrerPolicy="no-referrer"
                   />
-                  <div className="absolute inset-0 bg-green-500/15 blur-2xl rounded-full -z-10" />
-                </motion.div>
+                ))}
               </div>
-              
-              <div className="mb-16 lg:mb-0">
-                <Link to="#">
-                  <motion.div
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="inline-block"
-                  >
-                    <Button className="h-[48px] px-10 rounded-full bg-[#F07E48] hover:bg-orange-600 text-white font-bold text-[16px] border-0 shadow-[0_10px_20px_-5px_rgba(240,126,72,0.3)]">
-                      Try our bot
-                    </Button>
-                  </motion.div>
-                </Link>
+              <p className="text-sm font-medium">Be the first to try <span className="font-bold">CARTLIST</span></p>
+            </div>
+
+            {/* Waitlist Form */}
+            <form onSubmit={handleSubmit} className="max-w-md mx-auto flex flex-col gap-4">
+              <div className="relative">
+                <Input 
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your email" 
+                  className="h-14 rounded-full px-8 border-orange-100 focus:ring-cartlist-orange bg-white/50 backdrop-blur-sm shadow-sm"
+                />
               </div>
-
-              {/* Desktop version of the 3D WhatsApp Logo */}
-              <motion.div
-                animate={{ 
-                  y: [0, -10, 0],
-                  rotate: [-3, 3, -3]
-                }}
-                transition={{ 
-                  duration: 6,
-                  repeat: Infinity,
-                  ease: "easeInOut"
-                }}
-                className="hidden lg:block mt-20 relative w-full h-auto lg:w-[704px] lg:h-[354px] lg:-ml-40"
+              <Button 
+                type="submit"
+                disabled={isSubmitting}
+                className="h-14 rounded-full bg-cartlist-orange hover:bg-orange-600 text-white text-lg font-semibold shadow-lg shadow-orange-200 transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
               >
-                <img 
-                   src="https://res.cloudinary.com/dpsvazol5/image/upload/v1777942132/image_26_ladnnn.png"
-                  alt="WhatsApp 3D" 
-                  className="w-full h-full object-contain object-left filter drop-shadow-[0_20px_40px_rgba(34,197,94,0.3)]"
-                  referrerPolicy="no-referrer"
-                />
-                <div className="absolute inset-0 bg-green-500/10 blur-3xl rounded-full -z-10" />
-              </motion.div>
-            </div>
-
-            {/* Phone Mockup Right */}
-            <div className="flex-1 relative z-10 flex justify-center lg:justify-end items-center h-full">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9, x: 50 }}
-                whileInView={{ opacity: 1, scale: 1, x: 0 }}
-                transition={{ duration: 1, type: "spring", bounce: 0.3 }}
-                viewport={{ once: true }}
-                className="relative lg:absolute lg:-bottom-20 lg:right-0"
-              >
-                <img 
-                  src="https://res.cloudinary.com/dpsvazol5/image/upload/v1777941703/Frame_1000004091_tdod1z.png"
-                  alt="WhatsApp Phone Mockup"
-                  className="w-[280px] md:w-[380px] lg:w-[420px] h-auto drop-shadow-[0_40px_80px_rgba(0,0,0,0.8)]"
-                  referrerPolicy="no-referrer"
-                />
-
-                {/* Floating Bubbles */}
-                <FloatingBubble 
-                  text="Track Order 🚚" 
-                  className="top-[40%] -left-12 md:-left-20" 
-                  delay={0.3}
-                />
-                <FloatingBubble 
-                  text="Cancel Order 📦" 
-                  className="top-[15%] -right-8 md:-right-12" 
-                  delay={0.6}
-                />
-                <FloatingBubble 
-                  text="Other Issues 💬" 
-                  className="bottom-[35%] -right-4 md:-right-8" 
-                  delay={0.9}
-                />
-                
-                {/* Visual Glow behind phone */}
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-[80%] bg-green-500/20 blur-[120px] -z-10" />
-              </motion.div>
-            </div>
-          </motion.div>
-        </div>
-      </section>
-      
-      {/* Testimonials Section */}
-      <section className="bg-white py-24 px-6 relative overflow-hidden">
-        {/* Visual Glows matching mockup */}
-        <div className="absolute top-0 left-0 w-[40%] h-[300px] bg-purple-500/10 blur-[120px] rounded-full pointer-events-none" />
-        <div className="absolute top-0 right-0 w-[30%] h-[200px] bg-orange-500/10 blur-[100px] rounded-full pointer-events-none" />
-        
-        {/* Background Pattern Overlay - Continued from previous section */}
-        <div 
-          className="absolute inset-0 pointer-events-none opacity-[0.6]"
-          style={{ 
-            backgroundImage: "url('https://res.cloudinary.com/dpsvazol5/image/upload/v1777942695/WhatsApp_Pattern_light_z3z5zu.png')",
-            backgroundRepeat: "repeat",
-            backgroundSize: "600px"
-          }}
-        />
-
-        <div className="max-w-7xl mx-auto relative z-10 text-center mb-20">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-          >
-            <p className="text-[18px] md:text-[22px] font-bold text-gray-800 mb-4">Don't take our word for it</p>
-            <h2 className="text-[16px] md:text-[22px] lg:text-[24px] font-bold text-black leading-[1.1] font-heading">
-              Hear from what our <span className="text-[#F07E48]">vendor</span> says
-            </h2>
-          </motion.div>
-        </div>
-
-        <div className="max-w-[100vw] relative z-10 overflow-hidden py-10">
-          <div className="flex gap-8 md:gap-12 animate-marquee-testimonial w-max px-6">
-            {[
-              {
-                author: "Miks's collection",
-                quote: "Cartlist has simplified how we handle custom orders. We no longer lose track of stockpile requests, and our customers appreciate the transparency. It's an essential tool for any growing vendor in today's market.",
-                img: "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&q=80&w=800"
-              },
-              {
-                author: "Luna's series",
-                quote: "The WhatsApp integration is pure magic. I can manage my entire shop's stockpile communication without ever leaving the app. It's saved us hours of administrative work every single week.",
-                img: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=800"
-              },
-              {
-                author: "Kini's Store",
-                quote: "Finally, a platform that understands vendors. The interface is intuitive, and the notifications keep me on top of every single order. My customers are happier because I'm more organized.",
-                img: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800"
-              },
-              {
-                author: "The Luxe Brand",
-                quote: "The professional look Cartlist gives our brand is invaluable. It elevates our customer service and makes the difficult task of managing stockpiles feel effortless and standardized.",
-                img: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=800"
-              }
-            ].concat([
-              {
-                author: "Miks's collection",
-                quote: "Cartlist has simplified how we handle custom orders. We no longer lose track of stockpile requests, and our customers appreciate the transparency. It's an essential tool for any growing vendor in today's market.",
-                img: "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&q=80&w=800"
-              },
-              {
-                author: "Luna's series",
-                quote: "The WhatsApp integration is pure magic. I can manage my entire shop's stockpile communication without ever leaving the app. It's saved us hours of administrative work every single week.",
-                img: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=800"
-              },
-              {
-                author: "Kini's Store",
-                quote: "Finally, a platform that understands vendors. The interface is intuitive, and the notifications keep me on top of every single order. My customers are happier because I'm more organized.",
-                img: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800"
-              },
-              {
-                author: "The Luxe Brand",
-                quote: "The professional look Cartlist gives our brand is invaluable. It elevates our customer service and makes the difficult task of managing stockpiles feel effortless and standardized.",
-                img: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=800"
-              }
-            ]).map((testimonial, i) => (
-              <TestimonialCard 
-                key={i}
-                author={testimonial.author}
-                quote={testimonial.quote}
-                img={testimonial.img}
-              />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* FAQ Section */}
-      <section className="bg-white py-24 px-6 relative overflow-hidden">
-        {/* Repeating the background pattern for consistency */}
-        <div 
-          className="absolute inset-0 pointer-events-none opacity-[0.4]"
-          style={{ 
-            backgroundImage: "url('https://res.cloudinary.com/dpsvazol5/image/upload/v1777942695/WhatsApp_Pattern_light_z3z5zu.png')",
-            backgroundRepeat: "repeat",
-            backgroundSize: "600px"
-          }}
-        />
-
-        <div className="max-w-3xl mx-auto relative z-10">
-          <div className="text-center mb-16">
-            <h2 className="text-[32px] md:text-[48px] font-black text-gray-900 mb-4 font-heading">
-              Frequently asked questions
-            </h2>
-            <p className="text-gray-500 text-[16px] md:text-[18px]">
-              Everything you need to know about the product and billing.
-            </p>
-          </div>
-
-          <div className="mb-20">
-            {faqs.map((faq, i) => (
-              <FAQItem 
-                key={i}
-                question={faq.question}
-                answer={faq.answer}
-                isOpen={openFaqIndex === i}
-                onClick={() => setOpenFaqIndex(openFaqIndex === i ? null : i)}
-              />
-            ))}
-          </div>
-
-          {/* Contact Box */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="bg-[#F9FAFB] rounded-[24px] p-8 text-center"
-          >
-            {/* Avatar Stack */}
-            <div className="flex justify-center -space-x-3 mb-6">
-              {[
-                "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=100&h=100&auto=format&fit=crop",
-                "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=100&h=100&auto=format&fit=crop",
-                "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=100&h=100&auto=format&fit=crop"
-              ].map((img, i) => (
-                <img 
-                  key={i}
-                  src={img} 
-                  alt="Team" 
-                  className="w-12 h-12 rounded-full border-[3px] border-white object-cover"
-                  referrerPolicy="no-referrer"
-                />
-              ))}
-            </div>
-            <h3 className="text-[18px] md:text-[20px] font-bold text-gray-900 mb-2">Still have questions?</h3>
-            <p className="text-gray-500 text-[14px] md:text-[16px] mb-8">
-              Can't find the answer you're looking for? Please chat to our friendly team.
-            </p>
-            <Link to="/contact">
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="inline-block"
-              >
-                <Button className="h-[48px] px-8 rounded-full bg-white hover:bg-gray-50 text-gray-900 font-bold text-[15px] border border-gray-200 shadow-sm">
-                  Get in touch
-                </Button>
-              </motion.div>
-            </Link>
+                {isSubmitting ? "Joining..." : "Get early access"}
+              </Button>
+            </form>
           </motion.div>
         </div>
       </section>
 
-      <Footer />
+      {/* Features Section */}
+      <section className="py-24 bg-white/30">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <FeatureCard 
+              icon={Brain}
+              title="Smart Automation"
+              description="Keep all your orders in one place automatically with our AI-powered tracking system."
+            />
+            <FeatureCard 
+              icon={Box}
+              title="Manage Stockpile"
+              description="Stay on top of all your stockpile orders with real-time inventory updates and alerts."
+            />
+            <FeatureCard 
+              icon={Globe}
+              title="Multiple platform"
+              description="Works with how you already sell. Seamlessly integrate with Shopify, Amazon, and more."
+            />
+          </div>
+        </div>
+      </section>
 
-      <style>{`
-        @keyframes marquee-testimonial {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(calc(-50% - 24px)); }
-        }
-        .animate-marquee-testimonial {
-          animation: marquee-testimonial 60s linear infinite;
-        }
-        .animate-marquee-testimonial:hover {
-          animation-play-state: paused;
-        }
-        
-        @keyframes marquee-slow {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(calc(-50% - 8px)); }
-        }
-        .animate-marquee-slow {
-          animation: marquee-slow 40s linear infinite;
-        }
-        .animate-marquee-slow:hover {
-          animation-play-state: paused;
-        }
-        
-        /* Simulating curved path by adjusting vertical position as it scrolls */
-        /* This is a simple approximation where cards follow a wave */
-        
-      `}</style>
+      {/* Footer */}
+      <footer className="relative pt-40 pb-20 overflow-hidden bg-background">
+        {/* Large Watermark */}
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 w-full text-center pointer-events-none select-none opacity-[0.03]">
+          <span className="text-[20vw] font-black tracking-tighter leading-none">CARTLIST</span>
+        </div>
+
+        <div className="max-w-7xl mx-auto px-6 relative z-10">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-20">
+            <div className="col-span-1 md:col-span-2">
+              <Logo className="mb-6" />
+              <p className="text-muted-foreground max-w-xs">
+                No more missed or lost stockpile orders. No more confusion.
+              </p>
+            </div>
+            
+            <div>
+              <h4 className="font-bold mb-6 font-heading">Company</h4>
+              <ul className="space-y-4 text-sm text-muted-foreground">
+                <li><a href="#" className="hover:text-cartlist-orange transition-colors">Waitlist</a></li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="font-bold mb-6 font-heading">Socials</h4>
+              <div className="flex gap-4">
+                <a href="https://www.instagram.com/usecartlist" target="_blank" className="w-10 h-10 rounded-lg border border-orange-100 flex items-center justify-center hover:bg-orange-50 transition-colors">
+                  <Instagram className="w-5 h-5" />
+                </a>
+                <a href="https://www.linkedin.com/company/112261294" target="_blank" className="w-10 h-10 rounded-lg border border-orange-100 flex items-center justify-center hover:bg-orange-50 transition-colors">
+                  <Linkedin className="w-5 h-5" />
+                </a>
+                <a href="https://www.facebook.com/usecartlist" target="_blank" className="w-10 h-10 rounded-lg border border-orange-100 flex items-center justify-center hover:bg-orange-50 transition-colors">
+                  <Facebook className="w-5 h-5" />
+                </a>
+                <a href="https://x.com/usecartlist?s=21" target="_blank" className="w-10 h-10 rounded-lg border border-orange-100 flex items-center justify-center hover:bg-orange-50 transition-colors">
+                  <Twitter className="w-5 h-5" />
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-8 border-t border-orange-100 flex flex-col md:row-reverse md:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
+            <p>© 2026 Cartlist Hub</p>
+            <div className="flex gap-8">
+              <a href="#" className="hover:text-cartlist-orange transition-colors">Privacy policy</a>
+              <a href="#" className="hover:text-cartlist-orange transition-colors">Terms of service</a>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
