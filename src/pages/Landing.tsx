@@ -12,7 +12,8 @@ import {
   X,
   Sparkles,
   PartyPopper,
-  TreePine
+  TreePine,
+  Phone
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -207,6 +208,21 @@ export default function WaitlistLanding() {
                 {isSubmitting ? "Joining..." : "Get early access"}
               </Button>
             </form>
+
+            {/* WhatsApp Bot CTA */}
+            <div className="mt-8">
+              <a 
+                href={`https://wa.me/${import.meta.env.VITE_WHATSAPP_BOT_NUMBER}?text=hi`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-3 px-8 py-3 rounded-2xl bg-[#25D366]/10 border-2 border-[#25D366]/20 text-[#25D366] hover:bg-[#25D366]/20 transition-all font-bold group"
+              >
+                <div className="w-8 h-8 bg-[#25D366] rounded-full flex items-center justify-center text-white shadow-sm group-hover:scale-110 transition-transform">
+                  <Phone className="w-4 h-4" />
+                </div>
+                <span>Try the WhatsApp Bot Demo</span>
+              </a>
+            </div>
           </motion.div>
         </div>
       </section>
