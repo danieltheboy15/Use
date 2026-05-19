@@ -185,7 +185,8 @@ const sendWhatsAppText = async (to: string, text: string, context?: { stockpileI
     const response = await axios.post(url, data, {
       headers: { 
         "Content-Type": "application/json", 
-        "X-API-Key": apiKey 
+        "X-API-Key": apiKey,
+        "Authorization": `Bearer ${apiKey}`
       },
       timeout: 25000
     });
@@ -626,8 +627,10 @@ app.get("/api/debug/vendors", async (req, res) => {
 
 // WhatsApp Webhook for delivery callbacks
 app.post("/api/webhooks/whatsapp", async (req, res) => {
-  // Log full webhook payload for debugging
-  console.log("WHATSAPP WEBHOOK RECEIVED:", JSON.stringify(req.body, null, 2));
+  try {
+    // Log full webhook payload for debugging
+    await WebhookLog.create({ payload: req.body, headers: req.headers });
+    console.log("WHATSAPP WEBHOOK RECEIVED:", JSON.stringify(req.body, null, 2));
 
   // Support both Meta nested structure and potential flatted structure from aggregators
   let value = req.body.entry?.[0]?.changes?.[0]?.value;
@@ -675,6 +678,13 @@ app.post("/api/webhooks/whatsapp", async (req, res) => {
       if (text === "ping") {
         console.log("[Webhook] PING RECEIVED - sending PONG response");
         await sendWhatsAppText(from, "🏓 PONG! Your CartList bot connection is active. Type 'menu' to start.");
+        continue;
+      }
+
+      if (text === "reset" || text === "restart") {
+        console.log("[Webhook] RESET COMMAND RECEIVED - clearing session");
+        await BotSession.deleteOne({ phoneNumber: from });
+        await sendWhatsAppText(from, "🔄 Session reset. You can now start fresh. Type 'hi' to see the menu.");
         continue;
       }
 
@@ -788,8 +798,10 @@ app.post("/api/webhooks/whatsapp", async (req, res) => {
     }
   }
 
-  // Always respond with 200 to acknowledge receipt to Meta/Kapso
-  res.status(200).send("EVENT_RECEIVED");
+  } catch (err: any) {
+    console.error("[Webhook] GLOBAL ERROR in WhatsApp route:", err);
+    return res.status(200).send("ERROR_BUT_ACKNOWLEDGED"); // Always 200 to Meta
+  }
 });
 
 // Webhook verification (GET challenge)
@@ -798,14 +810,15 @@ app.get("/api/webhooks/whatsapp", (req, res) => {
   const token = req.query["hub.verify_token"];
   const challenge = req.query["hub.challenge"];
 
-  if (mode === "subscribe" && challenge) {
-    console.log("WEBHOOK VERIFICATION SUCCESSFUL (GET)");
+  console.log("WEBHOOK VERIFICATION (GET):", JSON.stringify(req.query, null, 2));
+
+  if (challenge) {
+    console.log("WEBHOOK VERIFICATION SUCCESSFUL (CHALLENGE RETURNED)");
     res.set("Content-Type", "text/plain");
-    res.status(200).send(challenge);
-  } else {
-    console.log("WEBHOOK VERIFICATION FAILED (GET)", { mode, token });
-    res.sendStatus(403);
+    return res.status(200).send(challenge);
   }
+  
+  res.sendStatus(403);
 });
 
 // --- VENDOR BOT LOGIC (v1.5) ---
@@ -1425,6 +1438,15 @@ const adminLogSchema = new mongoose.Schema({
 });
 
 const AdminLog = mongoose.model("AdminLog", adminLogSchema);
+
+// Webhook Log Schema
+const webhookLogSchema = new mongoose.Schema({
+  payload: { type: mongoose.Schema.Types.Mixed },
+  headers: { type: mongoose.Schema.Types.Mixed },
+  timestamp: { type: Date, default: Date.now }
+});
+
+const WebhookLog = mongoose.model("WebhookLog", webhookLogSchema);
 
 // Bot Session Schema
 const botSessionSchema = new mongoose.Schema({
@@ -2881,6 +2903,15 @@ app.get("/api/admin/message-logs", authenticate, isAdmin, async (req, res) => {
     res.json(logs);
   } catch (err) {
     res.status(500).json({ message: "Error fetching logs" });
+  }
+});
+
+app.get("/api/admin/webhook-logs", authenticate, isAdmin, async (req, res) => {
+  try {
+    const logs = await WebhookLog.find({}).sort({ timestamp: -1 }).limit(50);
+    res.json(logs);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching webhook logs" });
   }
 });
 
