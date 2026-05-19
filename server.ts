@@ -689,7 +689,7 @@ app.get("/api/debug/vendors", async (req, res) => {
 // WhatsApp Webhook for delivery callbacks
 app.post("/api/webhooks/whatsapp", async (req, res) => {
   // 1. Respond immediately to Meta/Kapso to avoid 25s timeout retries
-  res.status(200).send("OK");
+  res.status(200).json({ success: true, message: "OK" });
 
   // 2. Wrap all logic in background execution
   (async () => {
