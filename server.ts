@@ -212,6 +212,17 @@ const sendWhatsAppText = async (to: string, text: string, context?: { stockpileI
   } catch (error: any) {
     const errResp = error.response?.data;
     console.error(`[WA] Text error to ${finalTo}:`, error.message, JSON.stringify(errResp || {}));
+    
+    // Log failure to DB
+    MessageLog.create({
+      stockpileId: context?.stockpileId,
+      vendorId: context?.vendorId,
+      recipientPhone: finalTo,
+      templateName: "TEXT_REPLY",
+      status: "failed",
+      error: error.message || "Unknown error"
+    }).catch(() => {});
+
     return false;
   }
 };
@@ -353,15 +364,20 @@ const sendStockpileCreatedNotification = async (vendor: any, stockpile: any) => 
 
     // COMPULSORY WhatsApp: Template: stockpile_created
     // Params: {{1}}Customer, {{2}}Vendor, {{3}}Items, {{4}}Total, {{5}}Link
+    
+    // Ensure params are stringified and not empty
+    const itemsValue = (itemsSummary || "Variety of items").substring(0, 1000); // Caps at 1000 chars for safety
+    const totalValue = (stockpile.totalAmount || 0).toLocaleString();
+    
     const sent = await sendWhatsAppNotification(
       stockpile.customerPhone, 
       "stockpile_created", 
       [
-        stockpile.customerName, 
-        vendor.businessName, 
-        itemsSummary, 
-        stockpile.totalAmount.toLocaleString(), 
-        publicUrl
+        (stockpile.customerName || "Customer").toString(), 
+        (vendor.businessName || "Vendor").toString(), 
+        itemsValue.toString(), 
+        totalValue.toString(), 
+        publicUrl.toString()
       ],
       { stockpileId: stockpile._id, vendorId: vendor._id }
     );
@@ -415,18 +431,22 @@ const sendStockpileReminderNotification = async (vendor: any, stockpile: any) =>
     const baseUrl = (process.env.APP_URL || "https://www.usecartlist.com").replace(/\/$/, "");
     const publicUrl = `${baseUrl}/view/${stockpile._id}`;
 
+    // Ensure params are robust
+    const totalValue = (stockpile.totalAmount || 0).toLocaleString();
+    const finalParams = [
+      (stockpile.customerName || "Customer").toString(),
+      (vendor.businessName || "Vendor").toString(),
+      (closingDate || "Soon").toString(),
+      totalValue.toString(),
+      publicUrl.toString()
+    ];
+
     // COMPULSORY WhatsApp: Template: stockpile_reminder
     // Params: {{1}}Customer, {{2}}Vendor, {{3}}ClosingDate, {{4}}Total, {{5}}Link
     const whatsappSent = await sendWhatsAppNotification(
       stockpile.customerPhone, 
       "stockpile_reminder", 
-      [
-        stockpile.customerName, 
-        vendor.businessName, 
-        closingDate, 
-        stockpile.totalAmount.toLocaleString(), 
-        publicUrl
-      ],
+      finalParams,
       { stockpileId: stockpile._id.toString(), vendorId: vendor._id.toString() }
     );
 
@@ -465,18 +485,24 @@ const sendStockpileUpdateNotification = async (vendor: any, stockpile: any, item
     const baseUrl = (process.env.APP_URL || "https://www.usecartlist.com").replace(/\/$/, "");
     const publicUrl = `${baseUrl}/view/${stockpile._id}`;
 
+    // Ensure params are robust for Meta
+    const itemsValue = (itemsSummary || "Update").substring(0, 1000);
+    const totalValue = (stockpile.totalAmount || 0).toLocaleString();
+    const finalParams = [
+      (stockpile.customerName || "Customer").toString(),
+      (vendor.businessName || "Vendor").toString(),
+      itemsValue.toString(),
+      totalValue.toString(),
+      publicUrl.toString()
+    ];
+
     // COMPULSORY WhatsApp: Template: stockpile_updated
     // Params: {{1}}Customer, {{2}}Vendor, {{3}}ItemsAdded, {{4}}Total, {{5}}Link
     const sent = await sendWhatsAppNotification(
       stockpile.customerPhone, 
       "stockpile_updated", 
-      [
-        stockpile.customerName, 
-        vendor.businessName, 
-        itemsSummary, 
-        stockpile.totalAmount.toLocaleString(), 
-        publicUrl
-      ]
+      finalParams,
+      { stockpileId: stockpile._id, vendorId: vendor._id }
     );
 
     if (sent) {
@@ -525,13 +551,23 @@ const sendStockpileExtensionNotification = async (vendor: any, stockpile: any) =
     const baseUrl = (process.env.APP_URL || "https://www.usecartlist.com").replace(/\/$/, "");
     const publicUrl = `${baseUrl}/view/${stockpile._id}`;
 
+    // Ensure params are robust for Meta
+    const itemsValue = (itemsSummary || "Variety of items").substring(0, 1000);
+    const finalParams = [
+      (stockpile.customerName || "Customer").toString(),
+      (vendor.businessName || "Vendor").toString(),
+      itemsValue.toString(),
+      (closingDate || "Extended date").toString(),
+      publicUrl.toString()
+    ];
+
     // COMPULSORY WhatsApp: Template: stockpile_extended
     // Params: {{1}}Customer, {{2}}Vendor, {{3}}Items, {{4}}NewDate, {{5}}Link
-    const itemsSummary = stockpile.items.map((item: any) => `${item.name}(x${item.quantity})`).join(", ");
     const sent = await sendWhatsAppNotification(
       stockpile.customerPhone, 
       "stockpile_extended", 
-      [stockpile.customerName, vendor.businessName, itemsSummary, closingDate, publicUrl]
+      finalParams,
+      { stockpileId: stockpile._id, vendorId: vendor._id }
     );
 
     if (prefs.email !== false && stockpile.customerEmail) {
@@ -564,13 +600,23 @@ const sendStockpileClosedNotification = async (vendor: any, stockpile: any) => {
     const baseUrl = (process.env.APP_URL || "https://www.usecartlist.com").replace(/\/$/, "");
     const publicUrl = `${baseUrl}/view/${stockpile._id}`;
 
+    // Ensure params are robust for Meta
+    const itemsValue = (itemsSummary || "Completed items").substring(0, 1000);
+    const totalValue = (stockpile.totalAmount || 0).toLocaleString();
+    const finalParams = [
+      (stockpile.customerName || "Customer").toString(),
+      (vendor.businessName || "Vendor").toString(),
+      itemsValue.toString(),
+      totalValue.toString(),
+      publicUrl.toString()
+    ];
+
     // COMPULSORY WhatsApp: Template: stockpile_closed
     // Params: {{1}}Customer, {{2}}Vendor, {{3}}ItemsSummary, {{4}}FinalTotal, {{5}}Link
-    const itemsSummary = stockpile.items.map((item: any) => `${item.name}(x${item.quantity})`).join(", ");
     const sent = await sendWhatsAppNotification(
       stockpile.customerPhone, 
       "stockpile_closed", 
-      [stockpile.customerName, vendor.businessName, itemsSummary, stockpile.totalAmount.toLocaleString(), publicUrl],
+      finalParams,
       { stockpileId: stockpile._id, vendorId: vendor._id }
     );
 
@@ -621,7 +667,17 @@ app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(cookieParser());
 
 app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", message: "Server is running" });
+  res.json({ 
+    status: "ok", 
+    message: "Server is running",
+    hasKapsoKey: !!process.env.KAPSO_API_KEY,
+    hasKapsoId: !!process.env.KAPSO_SENDER_ID
+  });
+});
+
+app.get("/api/debug/logs", async (req, res) => {
+  const logs = await MessageLog.find().sort({ createdAt: -1 }).limit(50);
+  res.json(logs);
 });
 
 // --- DEBUG ENDPOINT (REMOVABLE) ---
@@ -996,6 +1052,10 @@ const handleVendorBot = async (from: string, text: string, vendor: any) => {
         await sendWhatsAppText(from, "I had trouble understanding your replies. Starting over - here's the main menu.");
         return sendMainMenu(from, vendor);
       }
+      
+      // FALLBACK: Inform user that input was not understood if not already handled
+      await sendWhatsAppText(from, "I didn't quite get that. Please reply with one of the valid options above, or type '0' for the main menu.");
+      
       session.markModified('data');
       await session.save();
     } else {
@@ -1064,7 +1124,6 @@ const handleMainMenuInput = async (from: string, text: string, session: any, ven
       await sendAccountSettings(from, vendor);
       return true;
     default:
-      await sendWhatsAppText(from, "I didn't get that. Please reply with a number: 1 = Log a Purchase, 2 = Stockpile List, etc.");
       return false;
   }
 };
