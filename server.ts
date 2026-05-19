@@ -381,8 +381,8 @@ const sendStockpileCreatedNotification = async (vendor: any, stockpile: any) => 
       stockpileId: stockpile._id
     });
 
-    // Email remains optional
-    if (prefs.email !== false && stockpile.customerEmail) {
+    // Email notification
+    if (stockpile.customerEmail) {
       const resend = getResend();
       if (resend) {
         await resend.emails.send({
@@ -398,7 +398,7 @@ const sendStockpileCreatedNotification = async (vendor: any, stockpile: any) => 
               <p><a href="${publicUrl}" style="display: inline-block; padding: 12px 24px; background-color: #F07E48; color: white; text-decoration: none; border-radius: 100px; font-weight: bold;">View Stockpile</a></p>
             </div>
           `
-        });
+        }).catch(err => console.error("Creation Email Error:", err));
       }
     }
     return sent;
@@ -415,9 +415,7 @@ const sendStockpileReminderNotification = async (vendor: any, stockpile: any) =>
     const baseUrl = (process.env.APP_URL || "https://www.usecartlist.com").replace(/\/$/, "");
     const publicUrl = `${baseUrl}/view/${stockpile._id}`;
 
-    // COMPULSORY WhatsApp: Template: stockpile_reminder
-    // Params: {{1}}Customer, {{2}}Vendor, {{3}}Date, {{4}}Total, {{5}}Link
-    // Note: If delivery fails after "accepted", ensure your Meta template has exactly 5 placeholders.
+    // COMPULSORY WhatsApp
     const whatsappSent = await sendWhatsAppNotification(
       stockpile.customerPhone, 
       "stockpile_reminder", 
@@ -431,8 +429,8 @@ const sendStockpileReminderNotification = async (vendor: any, stockpile: any) =>
       { stockpileId: stockpile._id.toString(), vendorId: vendor._id.toString() }
     );
 
-    // Email remains optional
-    if (prefs.email !== false && stockpile.customerEmail) {
+    // Email remains optional but common
+    if (stockpile.customerEmail) {
       const resend = getResend();
       if (resend) {
         await resend.emails.send({
@@ -445,11 +443,11 @@ const sendStockpileReminderNotification = async (vendor: any, stockpile: any) =>
               <p>This is a friendly reminder from <strong>${vendor.businessName}</strong>.</p>
               <p>Your stockpile list is closing on <strong>${closingDate}</strong>.</p>
               <p><strong>Current Total:</strong> ₦${stockpile.totalAmount.toLocaleString()}</p>
-              <p><a href="${publicUrl}" style="display: inline-block; padding: 10px 20px; background-color: #F07E48; color: white; text-decoration: none; border-radius: 5px;">View Your List</a></p>
+              <p><a href="${publicUrl}" style="display: inline-block; padding: 12px 24px; background-color: #F07E48; color: white; text-decoration: none; border-radius: 100px; font-weight: bold;">View Stockpile</a></p>
               <p>Don't forget to finalize your orders before the closing date!</p>
             </div>
           `
-        });
+        }).catch(err => console.error("Reminder Email Error:", err));
       }
     }
     return whatsappSent;
@@ -494,7 +492,7 @@ const sendStockpileUpdateNotification = async (vendor: any, stockpile: any, item
       stockpileId: stockpile._id
     });
 
-    if (prefs.email !== false && stockpile.customerEmail) {
+    if (stockpile.customerEmail) {
       const resend = getResend();
       if (resend) {
         await resend.emails.send({
@@ -506,10 +504,10 @@ const sendStockpileUpdateNotification = async (vendor: any, stockpile: any, item
               <h2>Hi ${stockpile.customerName}!</h2>
               <p><strong>${vendor.businessName}</strong> has updated your stockpile list.</p>
               <p><strong>Current Total:</strong> ₦${stockpile.totalAmount.toLocaleString()}</p>
-              <p><a href="${publicUrl}" style="display: inline-block; padding: 10px 20px; background-color: #F07E48; color: white; text-decoration: none; border-radius: 5px;">View Full List</a></p>
+              <p><a href="${publicUrl}" style="display: inline-block; padding: 12px 24px; background-color: #F07E48; color: white; text-decoration: none; border-radius: 100px; font-weight: bold;">View Stockpile</a></p>
             </div>
           `
-        });
+        }).catch(err => console.error("Update Email Error:", err));
       }
     }
     return true;
@@ -681,17 +679,18 @@ app.post("/api/webhooks/whatsapp", async (req, res) => {
 
           const from = message.from;
           const originalText = message.text?.body || message.button?.text || "";
-          const text = originalText.toLowerCase().trim();
+          const text = originalText.trim();
 
           const cleanPhone = from.replace(/\D/g, "");
           const shortPhone = cleanPhone.slice(-10);
 
           // Ping/Reset commands
-          if (text === "ping") {
+          const lowerText = text.toLowerCase();
+          if (lowerText === "ping") {
             await sendWhatsAppText(from, "🏓 PONG! Your CartList bot connection is active. Type 'menu' to start.");
             continue;
           }
-          if (text === "reset" || text === "restart") {
+          if (lowerText === "reset" || lowerText === "restart") {
             await BotSession.deleteOne({ phoneNumber: from });
             await sendWhatsAppText(from, "🔄 Session reset. Type 'hi' to see the menu.");
             continue;
@@ -719,7 +718,7 @@ app.post("/api/webhooks/whatsapp", async (req, res) => {
 
           // C. Registration Trigger?
           const starts = ["hi", "hello", "hey", "start", "menu", "home", "0", "reset", "create", "account"];
-          if (starts.some(s => text.includes(s))) {
+          if (starts.some(s => lowerText.includes(s))) {
             await handleUnknownUserBot(from, text, null);
             continue;
           }
@@ -730,7 +729,7 @@ app.post("/api/webhooks/whatsapp", async (req, res) => {
             { hasInteractedWithWhatsApp: true }
           ).catch(() => {});
 
-          const idMatch = text.match(/id:\s*([a-f0-9]{24})/i);
+          const idMatch = lowerText.match(/id:\s*([a-f0-9]{24})/i);
           const explicitId = idMatch ? idMatch[1] : null;
 
           let stockpile = null;
@@ -746,18 +745,22 @@ app.post("/api/webhooks/whatsapp", async (req, res) => {
           }
 
           if (stockpile) {
-            const sVendor = await User.findById(stockpile.vendorId);
+            const sVendor = await User.findById(stockpile.vendorId).lean();
             if (sVendor) {
               const baseUrl = (process.env.APP_URL || "https://www.usecartlist.com").replace(/\/$/, "");
               const url = `${baseUrl}/view/${stockpile._id}`;
               const reply = `Hi ${stockpile.customerName}! Here is the link to view your stockpile from ${sVendor.businessName || "your vendor"}: ${url}`;
-              await sendWhatsAppText(from, reply, { stockpileId: stockpile._id.toString(), vendorId: sVendor._id.toString() });
               
-              if (stockpile.status === "active") await sendStockpileCreatedNotification(sVendor, stockpile).catch(() => {});
+              // Parallelize response for speed
+              sendWhatsAppText(from, reply, { stockpileId: stockpile._id.toString(), vendorId: sVendor._id.toString() }).catch(() => {});
+              
+              if (stockpile.status === "active") {
+                sendStockpileCreatedNotification(sVendor, stockpile).catch(() => {});
+              }
             }
           } else {
              // Gentle fallback
-             if (["view", "stockpile", "help"].some(k => text.includes(k))) {
+             if (["view", "stockpile", "help"].some(k => lowerText.includes(k))) {
                 await sendWhatsAppText(from, "Welcome to Cartlist. We couldn't find an active stockpile linked to this number. Please check with your vendor!");
              }
           }
@@ -1235,8 +1238,23 @@ const handleLogPurchaseConfirm = async (from: string, text: string, session: any
     if (stockpile) {
       stockpile.items.push(...session.data.items);
       stockpile.totalAmount += totalAmount;
+      
+      // Real-time synchronization of delivery status
+      if (session.data.deliveryPaid === true) {
+        stockpile.deliveryPaid = true;
+        stockpile.deliveryStatus = "paid";
+      }
+
+      // Sync email if missing
+      if (session.data.customerEmail && !stockpile.customerEmail) {
+        stockpile.customerEmail = session.data.customerEmail;
+      }
+      
       await stockpile.save();
-      await sendStockpileUpdateNotification(vendor, stockpile, session.data.items);
+      // Send notifications in background (don't await) to improve bot responsiveness
+      sendStockpileUpdateNotification(vendor, stockpile, session.data.items).catch(err => {
+        console.error("BG Notification Error:", err);
+      });
     } else {
       stockpile = await Stockpile.create({
         vendorId: vendor._id,
@@ -1246,9 +1264,13 @@ const handleLogPurchaseConfirm = async (from: string, text: string, session: any
         endDate: new Date(session.data.endDate),
         items: session.data.items,
         totalAmount: totalAmount,
-        deliveryStatus: session.data.deliveryPaid ? "paid" : "pending"
+        deliveryPaid: session.data.deliveryPaid === true,
+        deliveryStatus: session.data.deliveryPaid === true ? "paid" : "pending"
       });
-      await sendStockpileCreatedNotification(vendor, stockpile);
+      // Send notifications in background (don't await) to improve bot responsiveness
+      sendStockpileCreatedNotification(vendor, stockpile).catch(err => {
+        console.error("BG Notification Error:", err);
+      });
     }
 
     // 2. Update CRM
@@ -1265,7 +1287,7 @@ const handleLogPurchaseConfirm = async (from: string, text: string, session: any
     const publicUrl = `${baseUrl}/view/${stockpile._id}`;
 
     await sendWhatsAppText(from, `✅ Logged! ${session.data.customerName}'s total is now ₦${stockpile.totalAmount.toLocaleString()}.\n\n` +
-      `${session.data.customerName} has been notified on WhatsApp. ✉️\n\n` +
+      `${session.data.customerName} has been notified on WhatsApp and Email. ✉️\n\n` +
       `Her view link:\n${publicUrl}\n\nShare this link with her anytime.\n\n` +
       `What next?\n1️⃣ Log another purchase\n0️⃣ Main menu`);
     
@@ -1375,8 +1397,9 @@ const handleStockpileDetailAction = async (from: string, text: string, session: 
       await sendWhatsAppText(from, "What is the item name?");
       return true;
     case "2":
-      await sendStockpileReminderNotification(vendor, s);
-      await sendWhatsAppText(from, `✅ Reminder sent to ${s.customerName}`);
+      // Explicit manual trigger - we don't await so the bot replies instantly
+      sendStockpileReminderNotification(vendor, s).catch(err => console.error("Reminder failed:", err));
+      await sendWhatsAppText(from, `✅ Reminder sent to ${s.customerName} via WhatsApp and Email.`);
       return true;
     case "3":
       const baseUrl = (process.env.APP_URL || "https://www.usecartlist.com").replace(/\/$/, "");
