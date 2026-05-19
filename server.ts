@@ -352,14 +352,14 @@ const sendStockpileCreatedNotification = async (vendor: any, stockpile: any) => 
     const publicUrl = `${baseUrl}/view/${stockpile._id}`;
 
     // COMPULSORY WhatsApp: Template: stockpile_created
-    // Params: {{1}}Customer, {{2}}Vendor, {{3}}Date/Info, {{4}}Total, {{5}}Link
+    // Params: {{1}}Customer, {{2}}Vendor, {{3}}Items, {{4}}Total, {{5}}Link
     const sent = await sendWhatsAppNotification(
       stockpile.customerPhone, 
       "stockpile_created", 
       [
         stockpile.customerName, 
         vendor.businessName, 
-        `Stockpile created on ${format(new Date(stockpile.createdAt), "d MMM")}`, 
+        itemsSummary, 
         stockpile.totalAmount.toLocaleString(), 
         publicUrl
       ],
@@ -466,14 +466,14 @@ const sendStockpileUpdateNotification = async (vendor: any, stockpile: any, item
     const publicUrl = `${baseUrl}/view/${stockpile._id}`;
 
     // COMPULSORY WhatsApp: Template: stockpile_updated
-    // Params: {{1}}Customer, {{2}}Vendor, {{3}}UpdateInfo, {{4}}NewTotal, {{5}}Link
+    // Params: {{1}}Customer, {{2}}Vendor, {{3}}ItemsAdded, {{4}}Total, {{5}}Link
     const sent = await sendWhatsAppNotification(
       stockpile.customerPhone, 
       "stockpile_updated", 
       [
         stockpile.customerName, 
         vendor.businessName, 
-        `Updated with ${itemsSummary}`, 
+        itemsSummary, 
         stockpile.totalAmount.toLocaleString(), 
         publicUrl
       ]
@@ -526,11 +526,12 @@ const sendStockpileExtensionNotification = async (vendor: any, stockpile: any) =
     const publicUrl = `${baseUrl}/view/${stockpile._id}`;
 
     // COMPULSORY WhatsApp: Template: stockpile_extended
-    // Params: {{1}}Customer, {{2}}Vendor, {{3}}OldDate, {{4}}NewDate, {{5}}Link
+    // Params: {{1}}Customer, {{2}}Vendor, {{3}}Items, {{4}}NewDate, {{5}}Link
+    const itemsSummary = stockpile.items.map((item: any) => `${item.name}(x${item.quantity})`).join(", ");
     const sent = await sendWhatsAppNotification(
       stockpile.customerPhone, 
       "stockpile_extended", 
-      [stockpile.customerName, vendor.businessName, "previously set date", closingDate, publicUrl]
+      [stockpile.customerName, vendor.businessName, itemsSummary, closingDate, publicUrl]
     );
 
     if (prefs.email !== false && stockpile.customerEmail) {
