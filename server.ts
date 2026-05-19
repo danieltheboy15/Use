@@ -154,6 +154,14 @@ const sendWelcomeEmail = async (email: string, firstName: string) => {
   }
 };
 
+// --- BOT SUPPORT UTILS ---
+const processedMessageIds = new Set<string>();
+// Cleanup old message IDs every 10 minutes to prevent memory leak
+setInterval(() => {
+  if (processedMessageIds.size > 5000) processedMessageIds.clear();
+}, 10 * 60 * 1000);
+
+// --- WHATSAPP UTILS ---
 const sendWhatsAppText = async (to: string, text: string, context?: { stockpileId?: string, vendorId?: string }) => {
   const apiKey = process.env.KAPSO_API_KEY;
   const phoneId = process.env.KAPSO_SENDER_ID;
@@ -187,19 +195,18 @@ const sendWhatsAppText = async (to: string, text: string, context?: { stockpileI
         "Content-Type": "application/json", 
         "X-API-Key": apiKey
       },
-      timeout: 25000
+      timeout: 20000
     });
     
-    console.log(`[WA] SUCCESS: ${response.status}`);
-    // Log to DB
-    await MessageLog.create({
+    // Log to DB in background
+    MessageLog.create({
       stockpileId: context?.stockpileId,
       vendorId: context?.vendorId,
       recipientPhone: finalTo,
       templateName: "TEXT_REPLY",
       messageId: response.data.messages?.[0]?.id,
       status: "sent"
-    });
+    }).catch(() => {});
     
     return true;
   } catch (error: any) {
@@ -665,6 +672,10 @@ app.post("/api/webhooks/whatsapp", async (req, res) => {
       // Handle Messages
       if (value.messages) {
         for (const message of value.messages) {
+          // Deduplication
+          if (message.id && processedMessageIds.has(message.id)) continue;
+          if (message.id) processedMessageIds.add(message.id);
+
           // CRITICAL: Filter outbound to prevent infinite bot loops
           if (message.kapso?.direction === "outbound") continue;
 
@@ -687,7 +698,7 @@ app.post("/api/webhooks/whatsapp", async (req, res) => {
           }
 
           // A. Role check: Vendor?
-          let vendor = await User.findOne({
+          const vendor = await User.findOne({
             $or: [
               { whatsappNumber: { $regex: shortPhone + "$" } },
               { whatsappNumber: cleanPhone }
@@ -713,8 +724,8 @@ app.post("/api/webhooks/whatsapp", async (req, res) => {
             continue;
           }
 
-          // D. Customer Match?
-          await Customer.updateMany(
+          // D. Customer Match? (Process in background)
+          Customer.updateMany(
             { phone: { $regex: shortPhone + "$" } }, 
             { hasInteractedWithWhatsApp: true }
           ).catch(() => {});
@@ -822,6 +833,7 @@ const handleUnknownUserBot = async (from: string, text: string, existingSession:
       if (input.length < 2) return sendWhatsAppText(from, "Business name is too short. Please enter your business name:");
       session.data.businessName = input;
       session.state = "REG_OWNER_NAME";
+      session.markModified('data');
       await session.save();
       await sendWhatsAppText(from, "Got it! What is your full name (business owner)?");
       break;
@@ -830,6 +842,7 @@ const handleUnknownUserBot = async (from: string, text: string, existingSession:
       if (input.split(" ").length < 2) return sendWhatsAppText(from, "Please enter your full name (First and Last name):");
       session.data.ownerName = input;
       session.state = "REG_EMAIL";
+      session.markModified('data');
       await session.save();
       await sendWhatsAppText(from, "What is your email address?");
       break;
@@ -846,6 +859,7 @@ const handleUnknownUserBot = async (from: string, text: string, existingSession:
       
       session.data.email = input.toLowerCase();
       session.state = "REG_PASSWORD";
+      session.markModified('data');
       await session.save();
       await sendWhatsAppText(from, "Create a password for your account (min. 8 characters, include a number):");
       break;
@@ -978,15 +992,18 @@ const handleVendorBot = async (from: string, text: string, vendor: any) => {
         await sendWhatsAppText(from, "I had trouble understanding your replies. Starting over - here's the main menu.");
         return sendMainMenu(from, vendor);
       }
+      session.markModified('data');
       await session.save();
     } else {
       session.failCount = 0;
+      session.markModified('data');
       await session.save();
     }
   } catch (err) {
     console.error("Bot Logic Error:", err);
     await sendWhatsAppText(from, "❌ Something went wrong. Let's return to the main menu.");
     session.state = "MAIN_MENU";
+    session.markModified('data');
     await session.save();
     return sendMainMenu(from, vendor);
   }
@@ -1131,11 +1148,20 @@ const handleLogPurchaseItemName = async (from: string, text: string, session: an
 };
 
 const handleLogPurchaseItemPrice = async (from: string, text: string, session: any, _vendor: any): Promise<boolean> => {
-  const price = parseFloat(text.replace(/,/g, ""));
+  // Strip everything except digits and decimal point
+  const cleanPrice = text.replace(/[^0-9.]/g, "");
+  const price = parseFloat(cleanPrice);
+  
   if (isNaN(price)) {
     await sendWhatsAppText(from, "Please enter a valid price (numbers only):");
     return false;
   }
+  
+  if (!session.data.currentItem) {
+    // Recovery if currentItem somehow missing
+    session.data.currentItem = { name: "Item" };
+  }
+  
   session.data.currentItem.price = price;
   session.state = "LOG_PURCHASE_ITEM_QUANTITY";
   await sendWhatsAppText(from, "Quantity?");
@@ -1149,12 +1175,20 @@ const handleLogPurchaseItemQuantity = async (from: string, text: string, session
     return false;
   }
   
+  if (!session.data.currentItem) {
+    session.data.currentItem = { name: "Item" };
+  }
+  if (!session.data.items) {
+    session.data.items = [];
+  }
+  
   const item = { ...session.data.currentItem, quantity: qty };
   session.data.items.push(item);
   delete session.data.currentItem;
   
   session.state = "LOG_PURCHASE_ADD_ANOTHER";
-  const total = item.price * item.quantity;
+  const unitPrice = item.price || 0;
+  const total = unitPrice * qty;
   await sendWhatsAppText(from, `✅ Added: ${item.name} x${qty} = ₦${total.toLocaleString()}\n\nAdd another item?\n1️⃣ Yes - add another\n2️⃣ No - I'm done`);
   return true;
 };
