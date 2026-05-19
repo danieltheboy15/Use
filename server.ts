@@ -618,6 +618,12 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok", message: "Server is running" });
 });
 
+// --- DEBUG ENDPOINT (REMOVABLE) ---
+app.get("/api/debug/vendors", async (req, res) => {
+  const vendors = await User.find({ role: "vendor" }).select("email whatsappNumber businessName").limit(50);
+  res.json(vendors);
+});
+
 // WhatsApp Webhook for delivery callbacks
 app.post("/api/webhooks/whatsapp", async (req, res) => {
   // Log full webhook payload for debugging
@@ -669,18 +675,27 @@ app.post("/api/webhooks/whatsapp", async (req, res) => {
         const shortPhone = cleanPhone.slice(-10);
 
         // 0. Check if sender is a registered vendor
-        const vendor = await User.findOne({
+        let vendor = await User.findOne({
           $or: [
             { whatsappNumber: { $regex: shortPhone + "$" } },
             { whatsappNumber: cleanPhone }
           ],
-          role: "vendor"
+          role: { $ne: "admin" } // Allow vendor or undefined (defaulting to vendor)
         });
 
         if (vendor) {
-          console.log(`[Webhook] VENDOR DETECTED: ${vendor.businessName} (${from})`);
+          console.log(`[Webhook] VENDOR DETECTED: ${vendor.businessName || vendor.firstName} (${from})`);
           await handleVendorBot(from, text, vendor);
           continue; // Move to next message, skip customer logic
+        }
+
+        // 0b. Potential registration flow or "What is this?" for unknown numbers
+        const greetings = ["hi", "hello", "hey", "start", "menu", "home", "0"];
+        if (greetings.includes(text.toLowerCase())) {
+          console.log(`[Webhook] UNRECOGNIZED NUMBER GREETING: ${from}`);
+          const msg = "Hi! Welcome to CartList. 👋 To use this bot for managing your stockpiles, please ensure you have an account at CartList.com and your WhatsApp number is correctly set in your settings.";
+          await sendWhatsAppText(from, msg);
+          continue;
         }
 
         // 1. Mark customer as having interacted
