@@ -789,7 +789,7 @@ const handleUnknownUserBot = async (from: string, text: string, existingSession:
       lastActive: new Date()
     });
     
-    return sendWhatsAppText(from, "Welcome to CartList! 👋 I help vendors manage their stockpile customers automatically.\n\nWould you like to:\n1️⃣ Create a new account\n2️⃣ I already have an account - link this number");
+    return sendWhatsAppText(from, "Welcome to CartList! 👋 I help vendors manage their stockpile customers automatically. Would you like to:\n1️⃣ Create a new account\n2️⃣ I already have an account - link this number");
   }
 
   // Update activity
@@ -801,7 +801,7 @@ const handleUnknownUserBot = async (from: string, text: string, existingSession:
     session.state = "WELCOME_UNKNOWN";
     session.data = {};
     await session.save();
-    return sendWhatsAppText(from, "Welcome to CartList! 👋 I help vendors manage their stockpile customers automatically.\n\nWould you like to:\n1️⃣ Create a new account\n2️⃣ I already have an account - link this number");
+    return sendWhatsAppText(from, "Welcome to CartList! 👋 I help vendors manage their stockpile customers automatically. Would you like to:\n1️⃣ Create a new account\n2️⃣ I already have an account - link this number");
   }
 
   // State Machine for Unregistered Users
@@ -896,7 +896,7 @@ const handleUnknownUserBot = async (from: string, text: string, existingSession:
     default:
       session.state = "WELCOME_UNKNOWN";
       await session.save();
-      await sendWhatsAppText(from, "I had trouble understanding that. Let's start over.\n\nWould you like to:\n1️⃣ Create a new account\n2️⃣ I already have an account - link this number");
+      await sendWhatsAppText(from, "Welcome to CartList! 👋 I help vendors manage their stockpile customers automatically. Would you like to:\n1️⃣ Create a new account\n2️⃣ I already have an account - link this number");
   }
 };
 
