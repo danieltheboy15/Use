@@ -626,199 +626,136 @@ app.get("/api/debug/vendors", async (req, res) => {
 
 // WhatsApp Webhook for delivery callbacks
 app.post("/api/webhooks/whatsapp", async (req, res) => {
-  try {
-    // Log full webhook payload for debugging
-    await WebhookLog.create({ payload: req.body, headers: req.headers });
-    console.log("WHATSAPP WEBHOOK RECEIVED:", JSON.stringify(req.body, null, 2));
+  // 1. Respond immediately to Meta/Kapso to avoid 25s timeout retries
+  res.status(200).send("OK");
 
-  // Support both Meta nested structure and potential flatted structure from aggregators
-  let value = req.body.entry?.[0]?.changes?.[0]?.value;
-  
-  // Kapso specific structure handling
-  if (!value && req.body.message) {
-    value = {
-      messages: [req.body.message],
-      metadata: { phone_number_id: req.body.phone_number_id || req.body.conversation?.phone_number_id }
-    };
-  }
+  // 2. Wrap all logic in background execution
+  (async () => {
+    try {
+      // Trace log
+      WebhookLog.create({ payload: req.body, headers: req.headers }).catch(() => {});
 
-  if (!value && (req.body.messaging_product === "whatsapp" || req.body.messages || req.body.statuses)) {
-    value = req.body;
-  }
-
-  if (!value) {
-    console.log("[Webhook] Invalid payload structure or not a WhatsApp event");
-    return res.status(200).send("NOT_A_WHATSAPP_EVENT");
-  }
-  
-  // Handle Message Status updates
-  if (value?.statuses) {
-    console.log("[Webhook] Processing statuses:", value.statuses.length);
-    for (const status of value.statuses) {
-      const recipient = status.recipient_id;
-      const msgStatus = status.status; // delivered, read, sent, failed
-      const msgId = status.id;
+      let value = req.body.entry?.[0]?.changes?.[0]?.value;
       
-      console.log(`>>> MESSAGE STATUS UPDATE: ID ${msgId} for ${recipient} is now [${msgStatus.toUpperCase()}]`);
-      
-      // Update the log in our database
-      await MessageLog.findOneAndUpdate(
-        { messageId: msgId },
-        { status: msgStatus as any },
-        { upsert: false }
-      ).catch(err => console.error("[Webhook] Error updating log status:", err));
-
-      if (status.errors) {
-        console.error(`!!! WEBHOOK DELIVERY ERROR for ${msgId} (${recipient}):`, JSON.stringify(status.errors));
-      }
-    }
-  }
-
-  // Handle Incoming Messages (This identifies customer/vendor interaction)
-  if (value?.messages) {
-    for (const message of value.messages) {
-      const from = message.from; // Sender's phone number
-      const originalText = message.text?.body || message.button?.text || "";
-      const text = originalText.toLowerCase().trim();
-      console.log(`>>> INCOMING WHATSAPP MESSAGE from ${from}: "${originalText}"`);
-
-      // Master Ping Test (Always works if webhook is connected)
-      if (text === "ping") {
-        await sendWhatsAppText(from, "🏓 PONG! Your CartList bot connection is active. Type 'menu' to start.");
-        continue;
+      // Kapso specific structure handling
+      if (!value && req.body.message) {
+        value = {
+          messages: [req.body.message],
+          metadata: { phone_number_id: req.body.phone_number_id || req.body.conversation?.phone_number_id }
+        };
       }
 
-      if (text === "reset" || text === "restart") {
-        console.log("[Webhook] RESET COMMAND RECEIVED - clearing session");
-        await BotSession.deleteOne({ phoneNumber: from });
-        await sendWhatsAppText(from, "🔄 Session reset. You can now start fresh. Type 'hi' to see the menu.");
-        continue;
+      if (!value && (req.body.messaging_product === "whatsapp" || req.body.messages || req.body.statuses)) {
+        value = req.body;
       }
 
-      try {
-        const cleanPhone = from.replace(/\D/g, "");
-        const shortPhone = cleanPhone.slice(-10);
+      if (!value) return;
 
-        // 0. Check if sender is a registered user/vendor
-        console.log(`[Webhook] Searching for user with phone suffix: ${shortPhone} or full: ${cleanPhone}`);
-        let vendor = await User.findOne({
-          $or: [
-            { whatsappNumber: { $regex: shortPhone + "$" } },
-            { whatsappNumber: cleanPhone },
-            { whatsappNumber: "0" + shortPhone },
-            { whatsappNumber: "234" + shortPhone },
-            { whatsappNumber: "0" + cleanPhone }
-          ]
-        });
-
-        if (vendor) {
-          console.log(`[Webhook] VENDOR DETECTED: ${vendor.businessName || vendor.firstName} (${from})`);
-          await handleVendorBot(from, text, vendor);
-          continue; 
+      // Handle Status Updates
+      if (value.statuses) {
+        for (const status of value.statuses) {
+          MessageLog.findOneAndUpdate(
+            { messageId: status.id },
+            { status: status.status as any },
+            { upsert: false }
+          ).catch(() => {});
         }
+      }
 
-        // If not a vendor, check if we have a registration session in progress
-        const cleanFrom = from.replace(/\D/g, "");
-        const regSession = await BotSession.findOne({ phoneNumber: cleanFrom, vendorId: null });
-        if (regSession) {
-          console.log(`[Webhook] UNKNOWN USER BOT SESSION DETECTED: ${from}`);
-          await handleUnknownUserBot(from, text, regSession);
-          continue;
-        }
+      // Handle Messages
+      if (value.messages) {
+        for (const message of value.messages) {
+          // CRITICAL: Filter outbound to prevent infinite bot loops
+          if (message.kapso?.direction === "outbound") continue;
 
-        // Potential registration trigger for unknown numbers
-        const starts = ["hi", "hello", "hey", "start", "menu", "home", "0", "reset", "create", "account"];
-        const lowerText = text.toLowerCase().trim();
-        if (starts.some(s => lowerText.includes(s))) {
-          console.log(`[Webhook] UNKNOWN USER STARTING BOT: ${from}`);
-          await handleUnknownUserBot(from, text, null);
-          continue;
-        }
+          const from = message.from;
+          const originalText = message.text?.body || message.button?.text || "";
+          const text = originalText.toLowerCase().trim();
 
-        // 0c. Regular Customer Check
-        // Handle phone matching by looking at the last 10 digits
-        console.log(`[Webhook] CUSTOMER DETECTED or unrecognized phone: ${from}`);
-        
-        console.log(`[Webhook] Phone Suffix: ${shortPhone} (extracted from ${from})`);
-        
-        // Update all customer records with this phone suffix
-        const updateResult = await Customer.updateMany(
-          { phone: { $regex: shortPhone + "$" } }, 
-          { hasInteractedWithWhatsApp: true }
-        );
-        console.log(`[Webhook] Updated ${updateResult.modifiedCount} customers with interaction status.`);
+          const cleanPhone = from.replace(/\D/g, "");
+          const shortPhone = cleanPhone.slice(-10);
 
-        // 2. Find their most recent active stockpile
-        // Extract ID from message if present (e.g. "ID: 6d5e...")
-        const idMatch = text.match(/id:\s*([a-f0-9]{24})/i);
-        const explicitlyProvidedId = idMatch ? idMatch[1] : null;
+          // Ping/Reset commands
+          if (text === "ping") {
+            await sendWhatsAppText(from, "🏓 PONG! Your CartList bot connection is active. Type 'menu' to start.");
+            continue;
+          }
+          if (text === "reset" || text === "restart") {
+            await BotSession.deleteOne({ phoneNumber: from });
+            await sendWhatsAppText(from, "🔄 Session reset. Type 'hi' to see the menu.");
+            continue;
+          }
 
-        let stockpile;
-        if (explicitlyProvidedId && mongoose.Types.ObjectId.isValid(explicitlyProvidedId)) {
-          console.log(`[Webhook] Message contains explicit ID: ${explicitlyProvidedId}. Fetching.`);
-          // When an ID is provided, we can be more lenient with status (customer might be viewing an old one)
-          // but usually they care about active or recently completed ones.
-          stockpile = await Stockpile.findOne({ 
-            _id: explicitlyProvidedId,
-            isDeleted: { $ne: true }
+          // A. Role check: Vendor?
+          let vendor = await User.findOne({
+            $or: [
+              { whatsappNumber: { $regex: shortPhone + "$" } },
+              { whatsappNumber: cleanPhone }
+            ]
           });
-        }
-        
-        // Fallback to phone number if no ID found or specific find failed
-        if (!stockpile) {
-          console.log(`[Webhook] No valid explicit ID found or find failed. Searching by phone suffix: ${shortPhone}`);
-          stockpile = await Stockpile.findOne({ 
-            customerPhone: { $regex: shortPhone + "$" }, 
-            status: "active",
-            isDeleted: { $ne: true }
-          }).sort({ createdAt: -1 }); 
-        }
 
-        if (stockpile) {
-          console.log(`[Webhook] Proceeding with customer stockpile: ${stockpile._id} (Status: ${stockpile.status})`);
-          const stockpileVendor = await User.findById(stockpile.vendorId);
-          
-          if (stockpileVendor) {
-            console.log(`[Webhook] Matching vendor found: ${stockpileVendor.businessName}`);
-            
-            // Generate link
-            const baseUrl = (process.env.APP_URL || "https://www.usecartlist.com").replace(/\/$/, "");
-            const publicUrl = `${baseUrl}/view/${stockpile._id}`;
-            const businessName = stockpileVendor.businessName || "your vendor";
+          if (vendor) {
+            await handleVendorBot(from, text, vendor);
+            continue;
+          }
 
-            // 1. Send immediate TEXT reply (since we're in the 24h window)
-            const replyText = `Hi ${stockpile.customerName}! Here is the link to view your stockpile from ${businessName}: ${publicUrl}`;
-            await sendWhatsAppText(from, replyText, { stockpileId: stockpile._id.toString(), vendorId: stockpileVendor._id.toString() });
+          // B. Registration Session check?
+          const regSession = await BotSession.findOne({ phoneNumber: cleanPhone, vendorId: null });
+          if (regSession) {
+            await handleUnknownUserBot(from, text, regSession);
+            continue;
+          }
 
-            // 2. Trigger the appropriate TEMPLATE notification (even if sent before)
-            // This ensures templates are working and reinforces the communication.
-            if (stockpile.status === "active") {
-              await sendStockpileCreatedNotification(stockpileVendor, stockpile).catch(() => false);
-            } else if (stockpile.status === "closed") {
-              await sendStockpileClosedNotification(stockpileVendor, stockpile).catch(() => false);
+          // C. Registration Trigger?
+          const starts = ["hi", "hello", "hey", "start", "menu", "home", "0", "reset", "create", "account"];
+          if (starts.some(s => text.includes(s))) {
+            await handleUnknownUserBot(from, text, null);
+            continue;
+          }
+
+          // D. Customer Match?
+          await Customer.updateMany(
+            { phone: { $regex: shortPhone + "$" } }, 
+            { hasInteractedWithWhatsApp: true }
+          ).catch(() => {});
+
+          const idMatch = text.match(/id:\s*([a-f0-9]{24})/i);
+          const explicitId = idMatch ? idMatch[1] : null;
+
+          let stockpile = null;
+          if (explicitId && mongoose.Types.ObjectId.isValid(explicitId)) {
+            stockpile = await Stockpile.findOne({ _id: explicitId, isDeleted: { $ne: true } });
+          }
+          if (!stockpile) {
+            stockpile = await Stockpile.findOne({ 
+              customerPhone: { $regex: shortPhone + "$" }, 
+              status: "active",
+              isDeleted: { $ne: true }
+            }).sort({ createdAt: -1 });
+          }
+
+          if (stockpile) {
+            const sVendor = await User.findById(stockpile.vendorId);
+            if (sVendor) {
+              const baseUrl = (process.env.APP_URL || "https://www.usecartlist.com").replace(/\/$/, "");
+              const url = `${baseUrl}/view/${stockpile._id}`;
+              const reply = `Hi ${stockpile.customerName}! Here is the link to view your stockpile from ${sVendor.businessName || "your vendor"}: ${url}`;
+              await sendWhatsAppText(from, reply, { stockpileId: stockpile._id.toString(), vendorId: sVendor._id.toString() });
+              
+              if (stockpile.status === "active") await sendStockpileCreatedNotification(sVendor, stockpile).catch(() => {});
             }
           } else {
-            console.error(`[Webhook] ERROR: Vendor ${stockpile.vendorId} not found for stockpile ${stockpile._id}`);
+             // Gentle fallback
+             if (["view", "stockpile", "help"].some(k => text.includes(k))) {
+                await sendWhatsAppText(from, "Welcome to Cartlist. We couldn't find an active stockpile linked to this number. Please check with your vendor!");
+             }
           }
-        } else {
-          // Fallback: If no stockpile found, but they said "view", "stockpile", "hi" or "hello"
-          const fallbacks = ["view", "stockpile", "hi", "hello", "hey", "help"];
-          if (fallbacks.some(keyword => text.includes(keyword))) {
-            await sendWhatsAppText(from, "Hi there! Welcome to Cartlist. We couldn't find an active stockpile linked to this number. If you are a vendor, please ensure your WhatsApp number is correct in your settings!")
-              .catch(err => console.error("Fallback text failed:", err));
-          }
-          console.log(`[Webhook] No suitable stockpile found for phone suffix ending in ${shortPhone}`);
         }
-      } catch (err) {
-        console.error("[Webhook] CRITICAL ERROR processing incoming message:", err);
       }
+    } catch (err) {
+      console.error("[BG Webhook Error]:", err);
     }
-  }
-
-  } catch (err: any) {
-    console.error("[Webhook] GLOBAL ERROR in WhatsApp route:", err);
-    return res.status(200).send("ERROR_BUT_ACKNOWLEDGED"); // Always 200 to Meta
-  }
+  })();
 });
 
 // Webhook verification (GET challenge)
@@ -1774,7 +1711,7 @@ const userSchema = new mongoose.Schema({
   googleId: { type: String },
   isEmailVerified: { type: Boolean, default: false },
   verificationToken: { type: String },
-  whatsappNumber: { type: String },
+  whatsappNumber: { type: String, index: true },
   password: { type: String },
   gender: { type: String },
   profilePicture: { type: String, default: "https://raw.githubusercontent.com/DannyYo696/svillage/29b4c24e6ca88b3ecf3856f30fceb3f29eef40bf/profile%20picture.webp" }, // Custom default avatar
@@ -1832,7 +1769,7 @@ const stockpileSchema = new mongoose.Schema({
   deliveryPaid: { type: Boolean, default: false },
   deliveryDue: { type: Number, default: 0 },
   deliveryStatus: { type: String, enum: ["pending", "paid"], default: "pending" },
-  status: { type: String, enum: ["active", "closed"], default: "active" },
+  status: { type: String, enum: ["active", "closed"], default: "active", index: true },
   sentMilestones: { type: [String], default: [] }, // ['5days', '2days', 'today']
   items: [{
     name: { type: String, required: true },
@@ -1844,6 +1781,10 @@ const stockpileSchema = new mongoose.Schema({
   lastWhatsAppTemplateSent: { type: String }, // Tracks the last template successfully sent
   isDeleted: { type: Boolean, default: false }
 }, { timestamps: true });
+
+stockpileSchema.index({ vendorId: 1, customerPhone: 1 });
+stockpileSchema.index({ customerPhone: 1, status: 1 });
+stockpileSchema.index({ isDeleted: 1, status: 1 });
 
 const Stockpile = mongoose.model("Stockpile", stockpileSchema);
 
