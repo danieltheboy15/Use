@@ -158,7 +158,10 @@ const sendWhatsAppText = async (to: string, text: string, context?: { stockpileI
   const apiKey = process.env.KAPSO_API_KEY;
   const phoneId = process.env.KAPSO_SENDER_ID;
 
-  if (!apiKey || !phoneId) return false;
+  if (!apiKey || !phoneId) {
+    console.error("[WA] MISSING CREDENTIALS: KAPSO_API_KEY or KAPSO_SENDER_ID");
+    return false;
+  }
 
   let cleaned = to.replace(/\D/g, "");
   if (cleaned.startsWith("2340")) cleaned = "234" + cleaned.substring(4);
@@ -178,11 +181,16 @@ const sendWhatsAppText = async (to: string, text: string, context?: { stockpileI
   };
 
   try {
+    console.log(`[WA] Sending TEXT to ${finalTo}: "${text.substring(0, 50)}..."`);
     const response = await axios.post(url, data, {
-      headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+      headers: { 
+        "Content-Type": "application/json", 
+        "X-API-Key": apiKey 
+      },
       timeout: 25000
     });
     
+    console.log(`[WA] SUCCESS: ${response.status}`);
     // Log to DB
     await MessageLog.create({
       stockpileId: context?.stockpileId,
@@ -194,8 +202,9 @@ const sendWhatsAppText = async (to: string, text: string, context?: { stockpileI
     });
     
     return true;
-  } catch (error) {
-    console.error(`[WA] Text error to ${finalTo}:`, error);
+  } catch (error: any) {
+    const errResp = error.response?.data;
+    console.error(`[WA] Text error to ${finalTo}:`, error.message, JSON.stringify(errResp || {}));
     return false;
   }
 };
@@ -614,9 +623,17 @@ app.post("/api/webhooks/whatsapp", async (req, res) => {
   // Log full webhook payload for debugging
   console.log("WHATSAPP WEBHOOK RECEIVED:", JSON.stringify(req.body, null, 2));
 
-  const entry = req.body.entry?.[0];
-  const changes = entry?.changes?.[0];
-  const value = changes?.value;
+  // Support both Meta nested structure and potential flatted structure from aggregators
+  let value = req.body.entry?.[0]?.changes?.[0]?.value;
+  if (!value && (req.body.messaging_product === "whatsapp" || req.body.messages || req.body.statuses)) {
+    value = req.body;
+    console.log("[Webhook] Detected flatted payload structure");
+  }
+
+  if (!value) {
+    console.log("[Webhook] Invalid payload structure or not a WhatsApp event");
+    return res.status(200).send("NOT_A_WHATSAPP_EVENT");
+  }
   
   // Handle Message Status updates
   if (value?.statuses) {
@@ -640,7 +657,7 @@ app.post("/api/webhooks/whatsapp", async (req, res) => {
     }
   }
 
-  // Handle Incoming Messages (This identifies customer interaction)
+  // Handle Incoming Messages (This identifies customer/vendor interaction)
   if (value?.messages) {
     for (const message of value.messages) {
       const from = message.from; // Sender's phone number
@@ -648,10 +665,27 @@ app.post("/api/webhooks/whatsapp", async (req, res) => {
       console.log(`>>> INCOMING WHATSAPP MESSAGE from ${from}: "${text}"`);
 
       try {
+        const cleanPhone = from.replace(/\D/g, "");
+        const shortPhone = cleanPhone.slice(-10);
+
+        // 0. Check if sender is a registered vendor
+        const vendor = await User.findOne({
+          $or: [
+            { whatsappNumber: { $regex: shortPhone + "$" } },
+            { whatsappNumber: cleanPhone }
+          ],
+          role: "vendor"
+        });
+
+        if (vendor) {
+          console.log(`[Webhook] VENDOR DETECTED: ${vendor.businessName} (${from})`);
+          await handleVendorBot(from, text, vendor);
+          continue; // Move to next message, skip customer logic
+        }
+
         // 1. Mark customer as having interacted
         // Handle phone matching by looking at the last 10 digits
-        const cleanPhone = from.replace(/\D/g, "");
-        const shortPhone = cleanPhone.slice(-10); 
+        console.log(`[Webhook] CUSTOMER DETECTED or unrecognized phone: ${from}`);
         
         console.log(`[Webhook] Phone Suffix: ${shortPhone} (extracted from ${from})`);
         
@@ -689,35 +723,36 @@ app.post("/api/webhooks/whatsapp", async (req, res) => {
         }
 
         if (stockpile) {
-          console.log(`[Webhook] Proceeding with stockpile: ${stockpile._id} (Status: ${stockpile.status})`);
-          const vendor = await User.findById(stockpile.vendorId);
+          console.log(`[Webhook] Proceeding with customer stockpile: ${stockpile._id} (Status: ${stockpile.status})`);
+          const stockpileVendor = await User.findById(stockpile.vendorId);
           
-          if (vendor) {
-            console.log(`[Webhook] Matching vendor found: ${vendor.businessName}`);
+          if (stockpileVendor) {
+            console.log(`[Webhook] Matching vendor found: ${stockpileVendor.businessName}`);
             
             // Generate link
             const baseUrl = (process.env.APP_URL || "https://www.usecartlist.com").replace(/\/$/, "");
             const publicUrl = `${baseUrl}/view/${stockpile._id}`;
-            const businessName = vendor.businessName || "your vendor";
+            const businessName = stockpileVendor.businessName || "your vendor";
 
             // 1. Send immediate TEXT reply (since we're in the 24h window)
             const replyText = `Hi ${stockpile.customerName}! Here is the link to view your stockpile from ${businessName}: ${publicUrl}`;
-            await sendWhatsAppText(from, replyText, { stockpileId: stockpile._id.toString(), vendorId: vendor._id.toString() });
+            await sendWhatsAppText(from, replyText, { stockpileId: stockpile._id.toString(), vendorId: stockpileVendor._id.toString() });
 
             // 2. Trigger the appropriate TEMPLATE notification (even if sent before)
             // This ensures templates are working and reinforces the communication.
             if (stockpile.status === "active") {
-              await sendStockpileCreatedNotification(vendor, stockpile).catch(() => false);
+              await sendStockpileCreatedNotification(stockpileVendor, stockpile).catch(() => false);
             } else if (stockpile.status === "closed") {
-              await sendStockpileClosedNotification(vendor, stockpile).catch(() => false);
+              await sendStockpileClosedNotification(stockpileVendor, stockpile).catch(() => false);
             }
           } else {
             console.error(`[Webhook] ERROR: Vendor ${stockpile.vendorId} not found for stockpile ${stockpile._id}`);
           }
         } else {
-          // Fallback: If no stockpile found, but they said "view" or "stockpile", send a generic response
-          if (text.includes("view") || text.includes("stockpile") || text.includes("hi")) {
-            await sendWhatsAppText(from, "Hi there! Welcome to Cartlist. We couldn't find an active stockpile linked to this number. Please contact your vendor to start one!")
+          // Fallback: If no stockpile found, but they said "view", "stockpile", "hi" or "hello"
+          const fallbacks = ["view", "stockpile", "hi", "hello", "hey", "help"];
+          if (fallbacks.some(keyword => text.includes(keyword))) {
+            await sendWhatsAppText(from, "Hi there! Welcome to Cartlist. We couldn't find an active stockpile linked to this number. If you are a vendor, please ensure your WhatsApp number is correct in your settings!")
               .catch(err => console.error("Fallback text failed:", err));
           }
           console.log(`[Webhook] No suitable stockpile found for phone suffix ending in ${shortPhone}`);
@@ -738,13 +773,465 @@ app.get("/api/webhooks/whatsapp", (req, res) => {
   const token = req.query["hub.verify_token"];
   const challenge = req.query["hub.challenge"];
 
-  if (mode && token) {
-    console.log("WEBHOOK VERIFICATION ATTEMPT (GET)");
+  if (mode === "subscribe" && challenge) {
+    console.log("WEBHOOK VERIFICATION SUCCESSFUL (GET)");
+    res.set("Content-Type", "text/plain");
     res.status(200).send(challenge);
   } else {
+    console.log("WEBHOOK VERIFICATION FAILED (GET)", { mode, token });
     res.sendStatus(403);
   }
 });
+
+// --- VENDOR BOT LOGIC (v1.5) ---
+const handleVendorBot = async (from: string, text: string, vendor: any) => {
+  const cleanPhone = from.replace(/\D/g, "");
+  let session = await BotSession.findOne({ phoneNumber: cleanPhone });
+
+  if (!session) {
+    session = await BotSession.create({
+      phoneNumber: cleanPhone,
+      vendorId: vendor._id,
+      state: "MAIN_MENU",
+      lastActive: new Date()
+    });
+  } else {
+    // Session timeout: Reset to main menu if inactive for > 30 mins
+    const now = new Date();
+    const diff = (now.getTime() - new Date(session.lastActive).getTime()) / (1000 * 60);
+    if (diff > 30) {
+      session.state = "MAIN_MENU";
+      session.data = {};
+    }
+    session.lastActive = now;
+    await session.save();
+  }
+
+  // Handle global reset command
+  const greetings = ["hi", "hello", "hey", "start", "menu", "home", "0"];
+  if (greetings.includes(text.toLowerCase()) || text === "0") {
+    session.state = "MAIN_MENU";
+    session.data = {};
+    await session.save();
+    return sendMainMenu(from, vendor);
+  }
+
+  switch (session.state) {
+    case "MAIN_MENU":
+      await handleMainMenuInput(from, text, session, vendor);
+      break;
+    case "LOG_PURCHASE_NAME":
+      await handleLogPurchaseName(from, text, session, vendor);
+      break;
+    case "LOG_PURCHASE_PHONE":
+      await handleLogPurchasePhone(from, text, session, vendor);
+      break;
+    case "LOG_PURCHASE_END_DATE":
+      await handleLogPurchaseEndDate(from, text, session, vendor);
+      break;
+    case "LOG_PURCHASE_ITEM_NAME":
+      await handleLogPurchaseItemName(from, text, session, vendor);
+      break;
+    case "LOG_PURCHASE_ITEM_PRICE":
+      await handleLogPurchaseItemPrice(from, text, session, vendor);
+      break;
+    case "LOG_PURCHASE_ITEM_QTY":
+      await handleLogPurchaseItemQty(from, text, session, vendor);
+      break;
+    case "LOG_PURCHASE_REVIEW":
+      await handleLogPurchaseReview(from, text, session, vendor);
+      break;
+    case "SEND_REMINDER_SELECT":
+      await handleSendReminderSelect(from, text, session, vendor);
+      break;
+    case "VIEW_STOCKPILE_LIST":
+      await handleViewStockpileList(from, text, session, vendor);
+      break;
+    case "VIEW_CUSTOMERS":
+      await handleViewCustomers(from, text, session, vendor);
+      break;
+    default:
+      await sendMainMenu(from, vendor);
+  }
+};
+
+const sendMainMenu = async (from: string, vendor: any) => {
+  const menu = `Welcome back, ${vendor.businessName || vendor.firstName}! 👋 What would you like to do?
+
+1️⃣ Log a Purchase
+2️⃣ View Stockpile List
+3️⃣ View Customers
+4️⃣ Send a Reminder
+5️⃣ Dashboard Summary
+6️⃣ Account Settings
+
+Reply with a number to continue. (Type '0' at any time to return here)`;
+  await sendWhatsAppText(from, menu);
+};
+
+const handleMainMenuInput = async (from: string, text: string, session: any, vendor: any) => {
+  switch (text.trim()) {
+    case "1":
+      session.state = "LOG_PURCHASE_NAME";
+      await session.save();
+      await sendWhatsAppText(from, "🛍️ Let's log a purchase. What is the Customer's Name?");
+      break;
+    case "2":
+      session.state = "VIEW_STOCKPILE_LIST";
+      await session.save();
+      await listStockpiles(from, vendor, 1);
+      break;
+    case "3":
+      session.state = "VIEW_CUSTOMERS";
+      await session.save();
+      await listCustomers(from, vendor, 1);
+      break;
+    case "4":
+      session.state = "SEND_REMINDER_SELECT";
+      await session.save();
+      await listStockpilesForReminder(from, vendor);
+      break;
+    case "5":
+      await sendDashboardSummary(from, vendor);
+      break;
+    case "6":
+      await sendAccountSettings(from, vendor);
+      break;
+    default:
+      await sendWhatsAppText(from, "Invalid choice. Please reply with 1, 2, 3, 4, 5 or 6.");
+  }
+};
+
+const handleLogPurchaseName = async (from: string, text: string, session: any, vendor: any) => {
+  if (text.length < 2) {
+    return sendWhatsAppText(from, "Name is too short. Please enter the Customer's full name:");
+  }
+  session.data.customerName = text;
+  session.state = "LOG_PURCHASE_PHONE";
+  await session.save();
+  await sendWhatsAppText(from, `Got it. What is ${text}'s WhatsApp Phone Number? (e.g. 08012345678)`);
+};
+
+const handleLogPurchasePhone = async (from: string, text: string, session: any, vendor: any) => {
+  const clean = text.replace(/\D/g, "");
+  if (clean.length < 10) {
+    return sendWhatsAppText(from, "Invalid phone number. Please enter a valid 10 or 11 digit mobile number:");
+  }
+  session.data.customerPhone = clean;
+  session.state = "LOG_PURCHASE_END_DATE";
+  await session.save();
+  await sendWhatsAppText(from, "When does this stockpile close? (e.g. 2026-12-30 or 'in 2 weeks')\nYou can also type '30' for 30 days from now.");
+};
+
+const handleLogPurchaseEndDate = async (from: string, text: string, session: any, vendor: any) => {
+  let date = new Date();
+  if (text.toLowerCase() === "today") {
+    // OK
+  } else if (!isNaN(Number(text))) {
+    date.setDate(date.getDate() + Number(text));
+  } else if (text.includes("week")) {
+    const weeks = parseInt(text) || 1;
+    date.setDate(date.getDate() + weeks * 7);
+  } else {
+    const parsed = new Date(text);
+    if (isNaN(parsed.getTime())) {
+      return sendWhatsAppText(from, "I couldn't understand that date. Try a number (e.g. '14' for 2 weeks) or a date YYYY-MM-DD:");
+    }
+    date = parsed;
+  }
+  
+  session.data.endDate = date.toISOString();
+  session.state = "LOG_PURCHASE_ITEM_NAME";
+  session.data.items = []; // Initialize items array
+  await session.save();
+  await sendWhatsAppText(from, "Great. Now, what is the first item being added?");
+};
+
+const handleLogPurchaseItemName = async (from: string, text: string, session: any, vendor: any) => {
+  session.data.currentItemName = text;
+  session.state = "LOG_PURCHASE_ITEM_PRICE";
+  await session.save();
+  await sendWhatsAppText(from, "Price per unit (NGN)?");
+};
+
+const handleLogPurchaseItemPrice = async (from: string, text: string, session: any, vendor: any) => {
+  const price = parseFloat(text.replace(/[^\d.]/g, ""));
+  if (isNaN(price)) {
+    return sendWhatsAppText(from, "Please enter a valid price (numbers only):");
+  }
+  session.data.currentItemPrice = price;
+  session.state = "LOG_PURCHASE_ITEM_QTY";
+  await session.save();
+  await sendWhatsAppText(from, "Quantity?");
+};
+
+const handleLogPurchaseItemQty = async (from: string, text: string, session: any, vendor: any) => {
+  const qty = parseInt(text.replace(/\D/g, "")) || 1;
+  
+  const newItem = {
+    name: session.data.currentItemName,
+    price: session.data.currentItemPrice,
+    quantity: qty
+  };
+  
+  session.data.items.push(newItem);
+  delete session.data.currentItemName;
+  delete session.data.currentItemPrice;
+  
+  session.state = "LOG_PURCHASE_REVIEW";
+  await session.save();
+  
+  const currentTotal = session.data.items.reduce((acc: number, item: any) => acc + (item.price * item.quantity), 0);
+  let review = `🛒 Cart so far:\n`;
+  session.data.items.forEach((item: any, i: number) => {
+    review += `${i+1}. ${item.name} x${item.quantity} - ₦${(item.price * item.quantity).toLocaleString()}\n`;
+  });
+  review += `\nTotal: ₦${currentTotal.toLocaleString()}\n\nReply with:\n➕ To add another item\n✅ To confirm and log\n❌ To cancel`;
+  
+  await sendWhatsAppText(from, review);
+};
+
+const handleLogPurchaseReview = async (from: string, text: string, session: any, vendor: any) => {
+  const input = text.trim().toLowerCase();
+  
+  if (input === "plus" || input === "+" || input.includes("add")) {
+    session.state = "LOG_PURCHASE_ITEM_NAME";
+    await session.save();
+    await sendWhatsAppText(from, "What is the next item?");
+  } else if (input === "confirm" || input === "yes" || input.includes("check") || input.includes("✅")) {
+    // LOG TO DATABASE
+    try {
+      const totalAmount = session.data.items.reduce((acc: number, item: any) => acc + (item.price * item.quantity), 0);
+      
+      // Check for existing active stockpile for this customer
+      let stockpile = await Stockpile.findOne({
+        vendorId: vendor._id,
+        customerPhone: { $regex: session.data.customerPhone + "$" },
+        status: "active",
+        isDeleted: { $ne: true }
+      });
+
+      if (stockpile) {
+        // Append items
+        stockpile.items.push(...session.data.items);
+        stockpile.totalAmount += totalAmount;
+        await stockpile.save();
+        await sendStockpileUpdateNotification(vendor, stockpile, session.data.items);
+      } else {
+        // Create new
+        stockpile = await Stockpile.create({
+          vendorId: vendor._id,
+          customerName: session.data.customerName,
+          customerPhone: session.data.customerPhone,
+          endDate: new Date(session.data.endDate),
+          items: session.data.items,
+          totalAmount: totalAmount
+        });
+        await sendStockpileCreatedNotification(vendor, stockpile);
+      }
+
+      // Sync customer CRM
+      await Customer.findOneAndUpdate(
+        { vendorId: vendor._id, phone: session.data.customerPhone },
+        { name: session.data.customerName },
+        { upsert: true }
+      );
+
+      const baseUrl = (process.env.APP_URL || "https://www.usecartlist.com").replace(/\/$/, "");
+      const publicUrl = `${baseUrl}/view/${stockpile._id}`;
+
+      await sendWhatsAppText(from, `✅ Purchase Logged Successfully!\n\nCustomer: ${session.data.customerName}\nTotal: ₦${stockpile.totalAmount.toLocaleString()}\nCloses: ${format(new Date(stockpile.endDate), "d MMM yyyy")}\n\nView Link: ${publicUrl}\n\nType '0' for Menu.`);
+      
+      session.state = "MAIN_MENU";
+      session.data = {};
+      await session.save();
+    } catch (err) {
+      console.error("Bot Log Purchase Error:", err);
+      await sendWhatsAppText(from, "❌ Error logging purchase. Please try again or contact support.");
+      session.state = "MAIN_MENU";
+      await session.save();
+    }
+  } else if (input === "cancel" || input === "no" || input.includes("❌")) {
+    session.state = "MAIN_MENU";
+    session.data = {};
+    await session.save();
+    await sendWhatsAppText(from, "Cancelled. Back to main menu.");
+    await sendMainMenu(from, vendor);
+  } else {
+    await sendWhatsAppText(from, "Invalid input. Reply '+' to add another, '✅' to confirm, or '❌' to cancel.");
+  }
+};
+
+const listStockpiles = async (from: string, vendor: any, page: number) => {
+  const pageSize = 5;
+  const stockpiles = await Stockpile.find({ 
+    vendorId: vendor._id, 
+    status: "active",
+    isDeleted: { $ne: true } 
+  }).sort({ endDate: 1 }).limit(pageSize);
+
+  if (stockpiles.length === 0) {
+    await sendWhatsAppText(from, "You have no active stockpiles at the moment.");
+    return sendMainMenu(from, vendor);
+  }
+
+  let text = `📋 Active Stockpiles (Soonest first):\n\n`;
+  stockpiles.forEach((s, i) => {
+    const daysLeft = Math.ceil((new Date(s.endDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+    text += `${i + 1}. ${s.customerName}\n   💰 ₦${s.totalAmount.toLocaleString()}\n   ⏳ ${daysLeft} days left\n\n`;
+  });
+  text += "\nType '0' for Menu.";
+  await sendWhatsAppText(from, text);
+};
+
+const listCustomers = async (from: string, vendor: any, page: number) => {
+  const customers = await Customer.find({ vendorId: vendor._id }).sort({ createdAt: -1 }).limit(10);
+  
+  if (customers.length === 0) {
+    return sendWhatsAppText(from, "You don't have any customers saved yet.\n\nType '0' for Menu.");
+  }
+
+  let text = `👥 Recent Customers:\n\n`;
+  customers.forEach((c, i) => {
+    text += `${i + 1}. ${c.name} (${c.phone})\n`;
+  });
+  text += "\nType '0' for Menu.";
+  await sendWhatsAppText(from, text);
+};
+
+const sendDashboardSummary = async (from: string, vendor: any) => {
+  const activeStockpiles = await Stockpile.find({ vendorId: vendor._id, status: "active", isDeleted: { $ne: true } });
+  const totalValue = activeStockpiles.reduce((acc, s) => acc + s.totalAmount, 0);
+  const closingThisWeek = activeStockpiles.filter(s => {
+    const diff = (new Date(s.endDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24);
+    return diff <= 7 && diff >= 0;
+  });
+
+  const summary = `📊 Dashboard Summary:\n\n` +
+    `👥 Active Customers: ${activeStockpiles.length}\n` +
+    `💰 Total Stockpile Value: ₦${totalValue.toLocaleString()}\n` +
+    `⏳ Closing This Week: ${closingThisWeek.length}\n\n` +
+    `Visit your web dashboard for full analytics: https://www.usecartlist.com/dashboard\n\n` +
+    `Type '0' for Menu.`;
+    
+  await sendWhatsAppText(from, summary);
+};
+
+const listStockpilesForReminder = async (from: string, vendor: any) => {
+  const stockpiles = await Stockpile.find({ 
+    vendorId: vendor._id, 
+    status: "active",
+    isDeleted: { $ne: true } 
+  }).sort({ endDate: 1 }).limit(10);
+
+  if (stockpiles.length === 0) {
+    await sendWhatsAppText(from, "You have no active stockpiles to send reminders for.");
+    return sendMainMenu(from, vendor);
+  }
+
+  let text = `🔔 Select a customer to send a reminder:\n\n`;
+  stockpiles.forEach((s, i) => {
+    text += `${i + 1}. ${s.customerName} (₦${s.totalAmount.toLocaleString()})\n`;
+  });
+  text += "\nReply with the number to send the reminder.";
+  await sendWhatsAppText(from, text);
+};
+
+const handleSendReminderSelect = async (from: string, text: string, session: any, vendor: any) => {
+  const index = parseInt(text) - 1;
+  const stockpiles = await Stockpile.find({ 
+    vendorId: vendor._id, 
+    status: "active",
+    isDeleted: { $ne: true } 
+  }).sort({ endDate: 1 }).limit(10);
+
+  if (isNaN(index) || index < 0 || index >= stockpiles.length) {
+    return sendWhatsAppText(from, "Invalid selection. Please reply with a number from the list above.");
+  }
+
+  const stockpile = stockpiles[index];
+  const sent = await sendStockpileReminderNotification(vendor, stockpile);
+
+  if (sent) {
+    await sendWhatsAppText(from, `✅ Reminder sent to ${stockpile.customerName}!`);
+  } else {
+    await sendWhatsAppText(from, `❌ Failed to send reminder to ${stockpile.customerName}. Please try again.`);
+  }
+
+  session.state = "MAIN_MENU";
+  session.data = {};
+  await session.save();
+  await sendMainMenu(from, vendor);
+};
+
+const handleViewStockpileList = async (from: string, text: string, session: any, vendor: any) => {
+  // Simple view - back to menu
+  session.state = "MAIN_MENU";
+  await session.save();
+  await sendMainMenu(from, vendor);
+};
+
+const handleViewCustomers = async (from: string, text: string, session: any, vendor: any) => {
+  // Simple view - back to menu
+  session.state = "MAIN_MENU";
+  await session.save();
+  await sendMainMenu(from, vendor);
+};
+
+const sendAccountSettings = async (from: string, vendor: any) => {
+  const settings = `⚙️ Account Settings:\n\n` +
+    `Business: ${vendor.businessName}\n` +
+    `Email: ${vendor.email}\n` +
+    `WhatsApp: ${vendor.whatsappNumber}\n\n` +
+    `To change these settings, please use the web dashboard.\n\n` +
+    `Type '0' for Menu.`;
+  await sendWhatsAppText(from, settings);
+};
+
+// --- AUTOMATED REMINDER SCHEDULER (v1.5) ---
+const runAutomatedReminders = async () => {
+  try {
+    console.log("[Scheduler] Checking for pending reminders...");
+    const now = new Date();
+    
+    // Find active stockpiles
+    const stockpiles = await Stockpile.find({ 
+      status: "active", 
+      isDeleted: { $ne: true } 
+    });
+    
+    for (const s of stockpiles) {
+      const vendor = await User.findById(s.vendorId);
+      if (!vendor) continue;
+      
+      const diffDays = Math.ceil((new Date(s.endDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      
+      let milestone = "";
+      if (diffDays === 7) milestone = "7days";
+      else if (diffDays === 3) milestone = "3days";
+      else if (diffDays === 1) milestone = "1day";
+      else if (diffDays === 0) milestone = "today";
+      
+      if (milestone && !s.sentMilestones.includes(milestone)) {
+        console.log(`[Scheduler] Sending ${milestone} reminder for ${s.customerName} (Stockpile: ${s._id})`);
+        const sent = await sendStockpileReminderNotification(vendor, s);
+        if (sent) {
+          s.sentMilestones.push(milestone);
+          await s.save();
+        }
+      }
+    }
+  } catch (err) {
+    console.error("[Scheduler] Error running reminders:", err);
+  }
+};
+
+// Run reminders every 12 hours (or could be 1 hour depending on scale)
+setInterval(runAutomatedReminders, 12 * 60 * 60 * 1000);
+// Trigger once on start after a delay
+setTimeout(runAutomatedReminders, 10000);
+
+// --- END VENDOR BOT LOGIC ---
 
 // Authentication Middleware
 const authenticate = async (req: any, res: any, next: any) => {
@@ -913,6 +1400,17 @@ const adminLogSchema = new mongoose.Schema({
 });
 
 const AdminLog = mongoose.model("AdminLog", adminLogSchema);
+
+// Bot Session Schema
+const botSessionSchema = new mongoose.Schema({
+  phoneNumber: { type: String, required: true, unique: true },
+  vendorId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  state: { type: String, default: "IDLE" },
+  data: { type: mongoose.Schema.Types.Mixed, default: {} },
+  lastActive: { type: Date, default: Date.now }
+}, { timestamps: true });
+
+const BotSession = mongoose.model("BotSession", botSessionSchema);
 
 // Customer Schema
 const customerSchema = new mongoose.Schema({

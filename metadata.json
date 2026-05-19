@@ -1,5 +1,12 @@
 {
-  "name": "Remix: Cartlist Admin Hub",
-  "description": "High-performance platform operations, vendor management, and mission-critical system monitoring for the Cartlist ecosystem.",
-  "requestFramePermissions": []
+  "name": "CartList",
+  "description": "Professional stockpile management platform for Nigerian vendors. Automate purchase logging, customer notifications, and reminders via web and WhatsApp bot.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
