@@ -511,7 +511,7 @@ const sendStockpileUpdateNotification = async (vendor: any, stockpile: any, item
         }).catch(err => console.error("Update Email Error:", err));
       }
     }
-    return true;
+    return sent;
   } catch (error) {
     console.error("Error sending update notification:", error);
     return false;
@@ -1316,7 +1316,7 @@ const listStockpiles = async (from: string, vendor: any, session: any, page: num
     vendorId: vendor._id, 
     status: "active",
     isDeleted: { $ne: true } 
-  }).sort({ endDate: 1 }).skip((page - 1) * pageSize).limit(pageSize);
+  }).sort({ createdAt: -1 }).skip((page - 1) * pageSize).limit(pageSize);
 
   if (stockpiles.length === 0 && page === 1) {
     await sendWhatsAppText(from, "You have no active stockpiles at the moment.");
@@ -1378,7 +1378,7 @@ const handleViewStockpileList = async (from: string, text: string, session: any,
   detail += `🚚 Delivery: ${s.deliveryStatus === "paid" ? "Paid ✅" : "Unpaid ❌"}\n`;
   detail += `⏳ Days Remaining: ${daysLeft}\n`;
   detail += `🔗 View Link: ${publicUrl}\n\n`;
-  detail += `Options:\n1️⃣ Add item to this list\n2️⃣ Send reminder\n3️⃣ Copy view link\n4️⃣ Mark delivery as paid\n0️⃣ Back to list`;
+  detail += `Options:\n1️⃣ Add item to list\n2️⃣ Send reminder\n3️⃣ Copy view link\n4️⃣ Mark delivery paid\n5️⃣ Close stockpile\n0️⃣ Back to list`;
 
   session.state = "STOCKPILE_DETAIL";
   session.data.activeStockpileId = s._id.toString();
@@ -1405,8 +1405,11 @@ const handleStockpileDetailAction = async (from: string, text: string, session: 
     case "2":
       await sendWhatsAppText(from, `⏳ Sending reminder to ${s.customerName}...`);
       sendStockpileReminderNotification(vendor, s)
-        .then(() => sendWhatsAppText(from, `✅ Reminder successfully delivered to ${s.customerName}.`))
-        .catch(() => sendWhatsAppText(from, `❌ Failed to deliver reminder to ${s.customerName}.`));
+        .then(success => {
+          if (success) sendWhatsAppText(from, `✅ Reminder successfully delivered to ${s.customerName}.`);
+          else sendWhatsAppText(from, `❌ Failed to deliver WhatsApp reminder to ${s.customerName}. Please check their phone number.`);
+        })
+        .catch(() => sendWhatsAppText(from, `❌ System error delivering reminder to ${s.customerName}.`));
       return true;
     case "3":
       const baseUrl = (process.env.APP_URL || "https://www.usecartlist.com").replace(/\/$/, "");
@@ -1414,9 +1417,18 @@ const handleStockpileDetailAction = async (from: string, text: string, session: 
       return true;
     case "4":
       s.deliveryStatus = "paid";
+      s.deliveryPaid = true;
       await s.save();
       await sendWhatsAppText(from, "✅ Delivery marked as paid!");
       return true;
+    case "5":
+      s.status = "closed";
+      await s.save();
+      await sendWhatsAppText(from, `⏳ Closing stockpile for ${s.customerName}...`);
+      await sendStockpileClosedNotification(vendor, s);
+      await sendWhatsAppText(from, `✅ Stockpile successfully closed and ${s.customerName} has been notified.`);
+      session.state = "VIEW_STOCKPILE_LIST";
+      return listStockpiles(from, vendor, session, 1);
     case "0":
       session.state = "VIEW_STOCKPILE_LIST";
       return listStockpiles(from, vendor, session, session.data.currentPage || 1);
@@ -1534,7 +1546,10 @@ const handleCustomerDetailAction = async (from: string, text: string, session: a
       if (latest) {
         await sendWhatsAppText(from, `⏳ Sending reminder to ${c.name}...`);
         sendStockpileReminderNotification(vendor, latest)
-          .then(() => sendWhatsAppText(from, `✅ Reminder successfully delivered to ${c.name}.`))
+          .then(success => {
+            if (success) sendWhatsAppText(from, `✅ Reminder successfully delivered to ${c.name}.`);
+            else sendWhatsAppText(from, `❌ Failed to deliver reminder to ${c.name}.`);
+          })
           .catch(() => sendWhatsAppText(from, `❌ Failed to deliver reminder to ${c.name}.`));
       } else {
         await sendWhatsAppText(from, `❌ No active stockpile found for ${c.name} to remind.`);
@@ -1555,7 +1570,7 @@ const showReminderMenu = async (from: string, vendor: any, session: any): Promis
     vendorId: vendor._id, 
     status: "active",
     isDeleted: { $ne: true } 
-  }).sort({ endDate: 1 }).limit(10);
+  }).sort({ createdAt: -1 }).limit(10);
 
   if (stockpiles.length === 0) {
     await sendWhatsAppText(from, "No active stockpiles found.");
@@ -1631,7 +1646,10 @@ const handleReminderConfirm = async (from: string, text: string, session: any, v
       if (s) {
         await sendWhatsAppText(from, `⏳ Sending reminder to ${s.customerName}...`);
         sendStockpileReminderNotification(vendor, s)
-          .then(() => sendWhatsAppText(from, `✅ Reminder successfully delivered to ${s.customerName}.`))
+          .then(success => {
+            if (success) sendWhatsAppText(from, `✅ Reminder successfully delivered to ${s.customerName}.`);
+            else sendWhatsAppText(from, `❌ Failed to deliver WhatsApp reminder to ${s.customerName}.`);
+          })
           .catch(() => sendWhatsAppText(from, `❌ Failed to deliver reminder to ${s.customerName}. Please check their contact details.`));
       } else {
         await sendWhatsAppText(from, "❌ Stockpile not found.");
