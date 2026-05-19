@@ -667,8 +667,16 @@ app.post("/api/webhooks/whatsapp", async (req, res) => {
   if (value?.messages) {
     for (const message of value.messages) {
       const from = message.from; // Sender's phone number
-      const text = (message.text?.body || "").toLowerCase();
-      console.log(`>>> INCOMING WHATSAPP MESSAGE from ${from}: "${text}"`);
+      const originalText = message.text?.body || message.button?.text || "";
+      const text = originalText.toLowerCase().trim();
+      console.log(`>>> INCOMING WHATSAPP MESSAGE from ${from}: "${originalText}"`);
+
+      // Master Ping Test (Always works if webhook is connected)
+      if (text === "ping") {
+        console.log("[Webhook] PING RECEIVED - sending PONG response");
+        await sendWhatsAppText(from, "🏓 PONG! Your CartList bot connection is active. Type 'menu' to start.");
+        continue;
+      }
 
       try {
         const cleanPhone = from.replace(/\D/g, "");
@@ -678,7 +686,9 @@ app.post("/api/webhooks/whatsapp", async (req, res) => {
         let vendor = await User.findOne({
           $or: [
             { whatsappNumber: { $regex: shortPhone + "$" } },
-            { whatsappNumber: cleanPhone }
+            { whatsappNumber: cleanPhone },
+            { whatsappNumber: "0" + shortPhone },
+            { whatsappNumber: "234" + shortPhone }
           ],
           role: { $ne: "admin" } // Allow vendor or undefined (defaulting to vendor)
         });
@@ -690,10 +700,10 @@ app.post("/api/webhooks/whatsapp", async (req, res) => {
         }
 
         // 0b. Potential registration flow or "What is this?" for unknown numbers
-        const greetings = ["hi", "hello", "hey", "start", "menu", "home", "0"];
-        if (greetings.includes(text.toLowerCase())) {
+        const greetings = ["hi", "hello", "hey", "start", "menu", "home", "0", "reset"];
+        if (greetings.includes(text)) {
           console.log(`[Webhook] UNRECOGNIZED NUMBER GREETING: ${from}`);
-          const msg = "Hi! Welcome to CartList. 👋 To use this bot for managing your stockpiles, please ensure you have an account at CartList.com and your WhatsApp number is correctly set in your settings.";
+          const msg = "Hi! Welcome to CartList. 👋 To use this bot for managing your stockpiles, please ensure you have an account at CartList.com and your WhatsApp number (in 080... format) is correctly set in your settings.";
           await sendWhatsAppText(from, msg);
           continue;
         }
@@ -823,8 +833,8 @@ const handleVendorBot = async (from: string, text: string, vendor: any) => {
   }
 
   // Handle global reset command
-  const greetings = ["hi", "hello", "hey", "start", "menu", "home", "0"];
-  if (greetings.includes(text.toLowerCase()) || text === "0") {
+  const greetings = ["hi", "hello", "hey", "start", "menu", "home", "0", "reset"];
+  if (greetings.includes(text.toLowerCase().trim()) || text === "0") {
     session.state = "MAIN_MENU";
     session.data = {};
     await session.save();
