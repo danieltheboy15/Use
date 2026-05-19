@@ -1048,13 +1048,13 @@ const handleMainMenuInput = async (from: string, text: string, session: any, ven
       return true;
     case "2":
       session.state = "VIEW_STOCKPILE_LIST";
-      return listStockpiles(from, vendor, 1);
+      return listStockpiles(from, vendor, session, 1);
     case "3":
       session.state = "VIEW_CUSTOMERS";
-      return listCustomers(from, vendor, 1);
+      return listCustomers(from, vendor, session, 1);
     case "4":
       session.state = "SEND_REMINDER_SELECT";
-      return showReminderMenu(from, vendor);
+      return showReminderMenu(from, vendor, session);
     case "5":
       await sendDashboardSummary(from, vendor);
       return true;
@@ -1310,7 +1310,7 @@ const handleLogPurchaseConfirm = async (from: string, text: string, session: any
 };
 
 // --- VIEW STOCKPILE LIST FLOW (4.5) ---
-const listStockpiles = async (from: string, vendor: any, page: number): Promise<boolean> => {
+const listStockpiles = async (from: string, vendor: any, session: any, page: number): Promise<boolean> => {
   const pageSize = 10;
   const stockpiles = await Stockpile.find({ 
     vendorId: vendor._id, 
@@ -1335,12 +1335,10 @@ const listStockpiles = async (from: string, vendor: any, page: number): Promise<
   }
   text += "\nReply with a number to view details, or '0' for Menu.";
   
-  const cleanPhone = from.replace(/\D/g, "");
-  const session = await BotSession.findOne({ phoneNumber: cleanPhone });
   if (session) {
     session.data.stockpiles = stockpiles.map(s => s._id.toString());
     session.data.currentPage = page;
-    await session.save();
+    session.markModified('data');
   }
 
   await sendWhatsAppText(from, text);
@@ -1349,15 +1347,23 @@ const listStockpiles = async (from: string, vendor: any, page: number): Promise<
 
 const handleViewStockpileList = async (from: string, text: string, session: any, vendor: any): Promise<boolean> => {
   if (text.toLowerCase() === "next") {
-    return listStockpiles(from, vendor, (session.data.currentPage || 1) + 1);
+    return listStockpiles(from, vendor, session, (session.data.currentPage || 1) + 1);
   }
   
+  if (text === "0") {
+    session.state = "MAIN_MENU";
+    await sendMainMenu(from, vendor);
+    return true;
+  }
+
   const idx = parseInt(text) - 1;
   const stockpiles = session.data.stockpiles || [];
-  if (isNaN(idx) || idx < 0 || idx >= stockpiles.length) return false;
-
-  const stockpileId = stockpiles[idx];
-  const s = await Stockpile.findById(stockpileId);
+  if (isNaN(idx) || idx < 0 || idx >= stockpiles.length) {
+    if (text === "0") return false; // Handled above, but safety
+    await sendWhatsAppText(from, `Invalid selection. Please choose a number between 1 and ${stockpiles.length}, or '0' for Menu.`);
+    return true;
+  }
+  const s = await Stockpile.findById(stockpiles[idx]);
   if (!s) return false;
 
   const daysLeft = Math.ceil((new Date(s.endDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
@@ -1413,14 +1419,14 @@ const handleStockpileDetailAction = async (from: string, text: string, session: 
       return true;
     case "0":
       session.state = "VIEW_STOCKPILE_LIST";
-      return listStockpiles(from, vendor, session.data.currentPage || 1);
+      return listStockpiles(from, vendor, session, session.data.currentPage || 1);
     default:
       return false;
   }
 };
 
 // --- VIEW CUSTOMERS FLOW (4.6) ---
-const listCustomers = async (from: string, vendor: any, page: number): Promise<boolean> => {
+const listCustomers = async (from: string, vendor: any, session: any, page: number): Promise<boolean> => {
   const pageSize = 10;
   const customers = await Customer.find({ vendorId: vendor._id }).sort({ createdAt: -1 }).skip((page - 1) * pageSize).limit(pageSize);
 
@@ -1434,9 +1440,9 @@ const listCustomers = async (from: string, vendor: any, page: number): Promise<b
   for (let i = 0; i < customers.length; i++) {
     const c = customers[i];
     const idx = (page - 1) * pageSize + i + 1;
-    // Calculate total spend (mock logic or real aggregation)
+    // Calculate total spend
     const stockpiles = await Stockpile.find({ vendorId: vendor._id, customerPhone: { $regex: c.phone.slice(-10) + "$" } });
-    const totalSpend = stockpiles.reduce((acc, s) => acc + s.totalAmount, 0);
+    const totalSpend = stockpiles.reduce((acc, s) => acc + (s.totalAmount || 0), 0);
     const lastActive = stockpiles.length > 0 ? format(stockpiles[stockpiles.length - 1].updatedAt, "d MMM yyyy") : "N/A";
     
     text += `${idx}. ${c.name}\n   💰 Total Spend: ₦${totalSpend.toLocaleString()}\n   📅 Last Active: ${lastActive}\n\n`;
@@ -1445,12 +1451,10 @@ const listCustomers = async (from: string, vendor: any, page: number): Promise<b
   if (customers.length === pageSize) text += "Reply 'next' for more.\n";
   text += "\nReply with a number to view profile, or '0' for Menu.";
 
-  const cleanPhone = from.replace(/\D/g, "");
-  const session = await BotSession.findOne({ phoneNumber: cleanPhone });
   if (session) {
     session.data.customers = customers.map(c => c._id.toString());
     session.data.currentPage = page;
-    await session.save();
+    session.markModified('data');
   }
 
   await sendWhatsAppText(from, text);
@@ -1459,12 +1463,21 @@ const listCustomers = async (from: string, vendor: any, page: number): Promise<b
 
 const handleViewCustomers = async (from: string, text: string, session: any, vendor: any): Promise<boolean> => {
   if (text.toLowerCase() === "next") {
-    return listCustomers(from, vendor, (session.data.currentPage || 1) + 1);
+    return listCustomers(from, vendor, session, (session.data.currentPage || 1) + 1);
+  }
+
+  if (text === "0") {
+    session.state = "MAIN_MENU";
+    await sendMainMenu(from, vendor);
+    return true;
   }
 
   const idx = parseInt(text) - 1;
   const customers = session.data.customers || [];
-  if (isNaN(idx) || idx < 0 || idx >= customers.length) return false;
+  if (isNaN(idx) || idx < 0 || idx >= customers.length) {
+    await sendWhatsAppText(from, `Invalid selection. Please choose a number between 1 and ${customers.length}, or '0' for Menu.`);
+    return true;
+  }
 
   const customerId = customers[idx];
   const c = await Customer.findById(customerId);
@@ -1492,7 +1505,21 @@ const handleCustomerDetailAction = async (from: string, text: string, session: a
   switch (text) {
     case "0":
       session.state = "VIEW_CUSTOMERS";
-      return listCustomers(from, vendor, session.data.currentPage || 1);
+      return listCustomers(from, vendor, session, session.data.currentPage || 1);
+    case "1":
+      // View stockpile history
+      const history = await Stockpile.find({ vendorId: vendor._id, customerPhone: { $regex: c.phone.slice(-10) + "$" } }).sort({ createdAt: -1 });
+      if (history.length === 0) {
+        await sendWhatsAppText(from, "No stockpile history found for this customer.");
+      } else {
+        let historyMsg = `📦 Stockpile History for ${c.name}:\n\n`;
+        history.forEach((s, i) => {
+          historyMsg += `${i + 1}. Date: ${format(s.createdAt, "d MMM yyyy")}\n   Total: ₦${s.totalAmount.toLocaleString()}\n   Status: ${s.status}\n\n`;
+        });
+        historyMsg += "\nType '0' to go back.";
+        await sendWhatsAppText(from, historyMsg);
+      }
+      return true;
     case "2":
       session.state = "LOG_PURCHASE_CLOSE_DATE"; // Skip name/phone
       session.data.customerName = c.name;
@@ -1517,11 +1544,13 @@ const handleCustomerDetailAction = async (from: string, text: string, session: a
       await sendWhatsAppText(from, "Add Note feature coming soon! Type '0' to go back.");
       return true;
     default:
+      await sendWhatsAppText(from, "Invalid choice. Please reply with 1, 2, 3, 4 or 0.");
+      return true;
   }
 };
 
 // --- REMINDER FLOW (4.7) ---
-const showReminderMenu = async (from: string, vendor: any): Promise<boolean> => {
+const showReminderMenu = async (from: string, vendor: any, session: any): Promise<boolean> => {
   const stockpiles = await Stockpile.find({ 
     vendorId: vendor._id, 
     status: "active",
@@ -1541,11 +1570,9 @@ const showReminderMenu = async (from: string, vendor: any): Promise<boolean> => 
   });
   text += `\nA. SEND TO ALL\n0. Back`;
 
-  const cleanPhone = from.replace(/\D/g, "");
-  const session = await BotSession.findOne({ phoneNumber: cleanPhone });
   if (session) {
     session.data.stockpiles = stockpiles.map(s => s._id.toString());
-    await session.save();
+    session.markModified('data');
   }
 
   await sendWhatsAppText(from, text);
@@ -1564,8 +1591,10 @@ const handleSendReminderSelect = async (from: string, text: string, session: any
 
   const idx = parseInt(text) - 1;
   const stockpiles = session.data.stockpiles || [];
-  if (isNaN(idx) || idx < 0 || idx >= stockpiles.length) return false;
-
+  if (isNaN(idx) || idx < 0 || idx >= stockpiles.length) {
+    await sendWhatsAppText(from, `Invalid selection. Please choose a number from the list, or 'all' to remind everyone.`);
+    return true;
+  }
   const s = await Stockpile.findById(stockpiles[idx]);
   if (!s) return false;
 
