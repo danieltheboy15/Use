@@ -315,9 +315,11 @@ export default function Dashboard() {
               
               <div className="relative z-10 flex items-center justify-between gap-4 mt-auto">
                 <div className="flex flex-col gap-2 w-full">
-                  <Button className="bg-white text-cartlist-orange hover:bg-orange-50 rounded-full px-4 h-12 font-bold text-sm shadow-xl shadow-black/10 group-hover:scale-[1.02] transition-transform w-full justify-center">
-                    Get Started
-                  </Button>
+                  <a href="https://wa.me/2348149347629" target="_blank" rel="noopener noreferrer" className="w-full">
+                    <Button className="bg-white text-cartlist-orange hover:bg-orange-50 rounded-full px-4 h-12 font-bold text-sm shadow-xl shadow-black/10 group-hover:scale-[1.02] transition-transform w-full justify-center">
+                      Get Started
+                    </Button>
+                  </a>
                   <Button variant="outline" className="bg-white/10 border-white/30 text-white hover:bg-white/20 rounded-full px-4 h-12 font-bold text-sm backdrop-blur-sm transition-all w-full">
                     View Tutorial
                   </Button>
