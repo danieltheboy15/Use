@@ -252,6 +252,18 @@ const sendWhatsAppNotification = async (to: string, templateName: string, params
   
   const finalTo = cleaned;
 
+  // Construct fallbackText in case template fails immediately or asynchronously
+  let fallbackText = "";
+  if (templateName === "stockpile_reminder") {
+    fallbackText = `Hi ${params[0]}! 👋\n\nJust a friendly reminder from *${params[1]}* that your stockpile is closing on *${params[2]}*.\n\n💰 *Total:* ₦${params[3]}\n\n🔗 *View stockpile list here:* ${params[4]}\n\nThank you!`;
+  } else if (templateName === "stockpile_created") {
+    fallbackText = `Hi ${params[0]}! 👋\n\n*${params[1]}* has started a new stockpile for you.\n\n📦 *Items:* ${params[2]}\n💰 *Total:* ₦${params[3]}\n\n🔗 *View details here:* ${params[4]}`;
+  } else if (templateName === "stockpile_closed") {
+    fallbackText = `Hi ${params[0]}! 👋\n\nYour stockpile with *${params[1]}* has been closed.\n\n📦 *Items Summary:* ${params[2]}\n💰 *Final Total:* ₦${params[3]}\n\n🔗 *View details here:* ${params[4]}`;
+  } else if (templateName === "stockpile_extended") {
+    fallbackText = `Hi ${params[0]}! 👋\n\nYour stockpile with *${params[1]}* has been extended.\n\n📦 *Items:* ${params[2]}\n📅 *New Date:* ${params[3]}\n\n🔗 *View details here:* ${params[4]}`;
+  }
+
   // Use v18.0 as it is standard for stable WhatsApp API endpoints
   const url = `https://api.kapso.ai/meta/whatsapp/v18.0/${phoneId}/messages`;
   
@@ -325,7 +337,9 @@ const sendWhatsAppNotification = async (to: string, templateName: string, params
       recipientPhone: finalTo,
       templateName,
       messageId,
-      status: "sent"
+      status: "sent",
+      fallbackText,
+      hasFallenBack: false
     });
     
     return true;
@@ -344,8 +358,18 @@ const sendWhatsAppNotification = async (to: string, templateName: string, params
       recipientPhone: finalTo,
       templateName,
       status: "failed",
-      error: errorMessage
+      error: errorMessage,
+      fallbackText,
+      hasFallenBack: true
     });
+
+    // Send immediate direct standard text fallback on API error/rejection
+    if (fallbackText) {
+      console.log(`[WA] Direct fallback to standard text message for ${finalTo} due to immediate template sending failure.`);
+      await sendWhatsAppText(finalTo, fallbackText, context).catch(err => {
+        console.error("[WA] Direct fallback text sending failed:", err);
+      });
+    }
 
     return false;
   }
@@ -716,13 +740,60 @@ app.post("/api/webhooks/whatsapp", async (req, res) => {
       if (!value) return;
 
       // Handle Status Updates
-      if (value.statuses) {
-        for (const status of value.statuses) {
+      let statusesToProcess: any[] = [];
+      if (req.body.statuses) {
+        statusesToProcess = statusesToProcess.concat(req.body.statuses);
+      }
+      if (req.body.entry?.[0]?.changes?.[0]?.value?.statuses) {
+        statusesToProcess = statusesToProcess.concat(req.body.entry[0].changes[0].value.statuses);
+      }
+      if (req.body.message?.kapso?.statuses) {
+        statusesToProcess = statusesToProcess.concat(req.body.message.kapso.statuses);
+      }
+      if (req.body.message?.statuses) {
+        statusesToProcess = statusesToProcess.concat(req.body.message.statuses);
+      }
+      if (value && value.statuses) {
+        statusesToProcess = statusesToProcess.concat(value.statuses);
+      }
+
+      // Deduplicate statuses
+      const processedStatusIds = new Set<string>();
+      const uniqueStatuses = statusesToProcess.filter(st => {
+        if (!st || !st.id) return false;
+        const key = `${st.id}_${st.status}`;
+        if (processedStatusIds.has(key)) return false;
+        processedStatusIds.add(key);
+        return true;
+      });
+
+      if (uniqueStatuses.length > 0) {
+        for (const status of uniqueStatuses) {
           MessageLog.findOneAndUpdate(
             { messageId: status.id },
             { status: status.status as any },
             { upsert: false }
           ).catch(() => {});
+
+          if (status.status === "failed") {
+            // Find the message log, send standard text fallback if it exists and hasn't fallen back yet
+            (async () => {
+              try {
+                const log = await MessageLog.findOne({ messageId: status.id });
+                if (log && log.fallbackText && !log.hasFallenBack) {
+                  log.hasFallenBack = true;
+                  await log.save();
+                  console.log(`[WA Webhook] Message ${status.id} failed asynchronously (e.g., Meta eligibility/payment issue). Triggering standard text fallback to ${log.recipientPhone}...`);
+                  await sendWhatsAppText(log.recipientPhone, log.fallbackText, {
+                    stockpileId: log.stockpileId?.toString(),
+                    vendorId: log.vendorId?.toString()
+                  });
+                }
+              } catch (err) {
+                console.error("[WA Webhook] Error sending text fallback:", err);
+              }
+            })();
+          }
         }
       }
 
@@ -1394,7 +1465,7 @@ const handleLogPurchaseConfirm = async (from: string, text: string, session: any
 
     await sendWhatsAppText(from, `✅ Logged! ${session.data.customerName}'s total is now ₦${stockpile.totalAmount.toLocaleString()}.\n\n` +
       `${session.data.customerName} has been notified on WhatsApp and Email. ✉️\n\n` +
-      `Your Customer's view link:\n${publicUrl}\n\nShare this link with your customer anytime.\n\n` +
+      `Her view link:\n${publicUrl}\n\nShare this link with her anytime.\n\n` +
       `What next?\n1️⃣ Log another purchase\n0️⃣ Main menu`);
     
     session.state = "MAIN_MENU"; // Wait, spec says 1/0 choice. Let's stay in a limbo or special state? 
@@ -2060,6 +2131,8 @@ const messageLogSchema = new mongoose.Schema({
   status: { type: String, enum: ["sent", "delivered", "failed", "read", "accepted", "deleted"], default: "sent" },
   error: { type: String },
   messageId: { type: String },
+  fallbackText: { type: String },
+  hasFallenBack: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now }
 }, { timestamps: true });
 
