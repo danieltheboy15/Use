@@ -1394,7 +1394,7 @@ const handleLogPurchaseConfirm = async (from: string, text: string, session: any
 
     await sendWhatsAppText(from, `✅ Logged! ${session.data.customerName}'s total is now ₦${stockpile.totalAmount.toLocaleString()}.\n\n` +
       `${session.data.customerName} has been notified on WhatsApp and Email. ✉️\n\n` +
-      `Her view link:\n${publicUrl}\n\nShare this link with her anytime.\n\n` +
+      `Your Customer's view link:\n${publicUrl}\n\nShare this link with your customer anytime.\n\n` +
       `What next?\n1️⃣ Log another purchase\n0️⃣ Main menu`);
     
     session.state = "MAIN_MENU"; // Wait, spec says 1/0 choice. Let's stay in a limbo or special state? 
