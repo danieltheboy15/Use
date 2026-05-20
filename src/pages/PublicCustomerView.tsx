@@ -28,6 +28,7 @@ interface PublicStockpileData {
   customerEmail?: string;
   endDate: string;
   deliveryPaid: boolean;
+  deliveryDue?: number;
   status: string;
   items: Array<{
     name: string;
@@ -245,7 +246,7 @@ export default function PublicCustomerView() {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className={`flex items-center gap-2 ${data.deliveryPaid ? 'bg-green-500' : 'bg-[#F07E48]'} text-white px-4 py-2 rounded-2xl w-fit font-bold shadow-sm`}>
                     <Package className="w-4 h-4" />
-                    <span>{data.deliveryPaid ? "Paid" : "Not paid"}</span>
+                    <span>{data.deliveryPaid ? "Paid" : data.deliveryDue && data.deliveryDue > 0 ? `Unpaid (₦${data.deliveryDue.toLocaleString()})` : "Not paid"}</span>
                   </div>
                   {!data.deliveryPaid && (
                     <button 

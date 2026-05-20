@@ -547,6 +547,7 @@ const sendStockpileUpdateNotification = async (vendor: any, stockpile: any, item
 const sendStockpileExtensionNotification = async (vendor: any, stockpile: any) => {
   try {
     const prefs = vendor.notifications?.stockpileUpdates || { email: true, sms: true, push: true, inApp: true };
+    const itemsSummary = stockpile.items.map((item: any) => `${item.name}(x${item.quantity})`).join(", ");
     const closingDate = format(new Date(stockpile.endDate), "d MMM yyyy");
     const baseUrl = (process.env.APP_URL || "https://www.usecartlist.com").replace(/\/$/, "");
     const publicUrl = `${baseUrl}/view/${stockpile._id}`;
@@ -597,6 +598,7 @@ const sendStockpileExtensionNotification = async (vendor: any, stockpile: any) =
 const sendStockpileClosedNotification = async (vendor: any, stockpile: any) => {
   try {
     const prefs = vendor.notifications?.stockpileUpdates || { email: true, sms: true, push: true, inApp: true };
+    const itemsSummary = stockpile.items.map((item: any) => `${item.name}(x${item.quantity})`).join(", ");
     const baseUrl = (process.env.APP_URL || "https://www.usecartlist.com").replace(/\/$/, "");
     const publicUrl = `${baseUrl}/view/${stockpile._id}`;
 
@@ -1020,6 +1022,7 @@ const handleVendorBot = async (from: string, text: string, vendor: any) => {
       case "LOG_PURCHASE_EMAIL": handled = await handleLogPurchaseEmail(from, input, session, vendor); break;
       case "LOG_PURCHASE_CLOSE_DATE": handled = await handleLogPurchaseCloseDate(from, input, session, vendor); break;
       case "LOG_PURCHASE_DELIVERY_PAID": handled = await handleLogPurchaseDeliveryPaid(from, input, session, vendor); break;
+      case "LOG_PURCHASE_DELIVERY_FEE": handled = await handleLogPurchaseDeliveryFee(from, input, session, vendor); break;
       case "LOG_PURCHASE_ITEM_NAME": handled = await handleLogPurchaseItemName(from, input, session, vendor); break;
       case "LOG_PURCHASE_ITEM_PRICE": handled = await handleLogPurchaseItemPrice(from, input, session, vendor); break;
       case "LOG_PURCHASE_ITEM_QUANTITY": handled = await handleLogPurchaseItemQuantity(from, input, session, vendor); break;
@@ -1140,13 +1143,30 @@ const handleLogPurchaseName = async (from: string, text: string, session: any, _
   return true;
 };
 
-const handleLogPurchasePhone = async (from: string, text: string, session: any, _vendor: any): Promise<boolean> => {
+const handleLogPurchasePhone = async (from: string, text: string, session: any, vendor: any): Promise<boolean> => {
   const clean = text.replace(/\D/g, "");
   if (clean.length < 10) {
     await sendWhatsAppText(from, "Please enter a valid phone number (e.g. 08012345678):");
     return false;
   }
   session.data.customerPhone = clean;
+
+  const activeStockpile = await Stockpile.findOne({
+    vendorId: vendor._id,
+    customerPhone: { $regex: clean + "$" },
+    status: "active",
+    isDeleted: { $ne: true }
+  });
+
+  if (activeStockpile) {
+    session.data.endDate = activeStockpile.endDate.toISOString();
+    session.data.deliveryPaid = activeStockpile.deliveryPaid;
+    session.data.deliveryDue = activeStockpile.deliveryDue || 0;
+    session.data.usingExistingStockpile = true;
+  } else {
+    session.data.usingExistingStockpile = false;
+  }
+
   session.state = "LOG_PURCHASE_EMAIL";
   await sendWhatsAppText(from, `What is ${session.data.customerName}'s email address? (type 'skip' to skip)`);
   return true;
@@ -1159,8 +1179,15 @@ const handleLogPurchaseEmail = async (from: string, text: string, session: any, 
     return false;
   }
   session.data.customerEmail = email === "skip" ? null : email;
-  session.state = "LOG_PURCHASE_CLOSE_DATE";
-  await sendWhatsAppText(from, `When does ${session.data.customerName}'s stockpile close? (e.g. 28/06/2025)`);
+  
+  if (session.data.usingExistingStockpile) {
+    session.data.items = [];
+    session.state = "LOG_PURCHASE_ITEM_NAME";
+    await sendWhatsAppText(from, "Now let's add the items. 🛒\n\nItem 1 - What is the item name?");
+  } else {
+    session.state = "LOG_PURCHASE_CLOSE_DATE";
+    await sendWhatsAppText(from, `When does ${session.data.customerName}'s stockpile close? (e.g. 28/06/2025)`);
+  }
   return true;
 };
 
@@ -1189,13 +1216,30 @@ const handleLogPurchaseCloseDate = async (from: string, text: string, session: a
 const handleLogPurchaseDeliveryPaid = async (from: string, text: string, session: any, _vendor: any): Promise<boolean> => {
   if (text === "1") {
     session.data.deliveryPaid = true;
+    session.data.deliveryDue = 0;
+    session.data.items = [];
+    session.state = "LOG_PURCHASE_ITEM_NAME";
+    await sendWhatsAppText(from, "Now let's add the items. 🛒\n\nItem 1 - What is the item name?");
+    return true;
   } else if (text === "2") {
     session.data.deliveryPaid = false;
+    session.state = "LOG_PURCHASE_DELIVERY_FEE";
+    await sendWhatsAppText(from, "How much is the delivery fee? (Enter amount or '0' if unknown/none)");
+    return true;
   } else {
     await sendWhatsAppText(from, "Please reply 1 for Yes or 2 for No:");
     return false;
   }
+};
 
+const handleLogPurchaseDeliveryFee = async (from: string, text: string, session: any, _vendor: any): Promise<boolean> => {
+  const amount = parseFloat(text.replace(/[^\d.]/g, ""));
+  if (isNaN(amount) || amount < 0) {
+    await sendWhatsAppText(from, "Invalid delivery fee. Please enter a valid number (e.g. 1500) or '0':");
+    return false;
+  }
+
+  session.data.deliveryDue = amount;
   session.data.items = [];
   session.state = "LOG_PURCHASE_ITEM_NAME";
   await sendWhatsAppText(from, "Now let's add the items. 🛒\n\nItem 1 - What is the item name?");
@@ -1268,7 +1312,8 @@ const handleLogPurchaseAddAnother = async (from: string, text: string, session: 
     let summary = `📋 Purchase Summary:\n`;
     summary += `Customer: ${session.data.customerName}\n`;
     summary += `Phone: ${session.data.customerPhone}\n`;
-    summary += `Delivery: ${session.data.deliveryPaid ? "Paid ✅" : "Not Paid ❌"}\n`;
+    const feeText = session.data.deliveryDue > 0 ? ` (₦${session.data.deliveryDue.toLocaleString()})` : '';
+    summary += `Delivery: ${session.data.deliveryPaid ? "Paid ✅" : `Not Paid ❌${feeText}`}\n`;
     summary += `Stockpile closes: ${format(new Date(session.data.endDate), "d MMMM yyyy")}\n`;
     summary += `Items:\n`;
     session.data.items.forEach((item: any) => {
@@ -1325,7 +1370,8 @@ const handleLogPurchaseConfirm = async (from: string, text: string, session: any
         items: session.data.items,
         totalAmount: totalAmount,
         deliveryPaid: session.data.deliveryPaid === true,
-        deliveryStatus: session.data.deliveryPaid === true ? "paid" : "pending"
+        deliveryStatus: session.data.deliveryPaid === true ? "paid" : "pending",
+        deliveryDue: session.data.deliveryDue || 0
       });
       // Send notifications in background (don't await) to improve bot responsiveness
       sendStockpileCreatedNotification(vendor, stockpile).catch(err => {
@@ -1435,7 +1481,8 @@ const handleViewStockpileList = async (from: string, text: string, session: any,
     detail += `• ${item.name} x${item.quantity} - ₦${(item.price * item.quantity).toLocaleString()}\n`;
   });
   detail += `\n💰 Grand Total: ₦${s.totalAmount.toLocaleString()}\n`;
-  detail += `🚚 Delivery: ${s.deliveryStatus === "paid" ? "Paid ✅" : "Unpaid ❌"}\n`;
+  const feeText = s.deliveryDue > 0 ? ` (₦${s.deliveryDue.toLocaleString()})` : '';
+  detail += `🚚 Delivery: ${s.deliveryStatus === "paid" ? "Paid ✅" : `Unpaid ❌${feeText}`}\n`;
   detail += `⏳ Days Remaining: ${daysLeft}\n`;
   detail += `🔗 View Link: ${publicUrl}\n\n`;
   detail += `Options:\n1️⃣ Add item to list\n2️⃣ Send reminder\n3️⃣ Copy view link\n4️⃣ Mark delivery paid\n5️⃣ Close stockpile\n0️⃣ Back to list`;

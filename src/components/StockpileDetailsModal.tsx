@@ -22,6 +22,7 @@ interface Stockpile {
   customerEmail?: string;
   endDate: string;
   deliveryPaid: boolean;
+  deliveryDue?: number;
   status: "active" | "closed";
   items: StockpileItem[];
   totalAmount: number;
@@ -319,7 +320,9 @@ export const StockpileDetailsModal = ({ stockpile, isOpen, onClose, onUpdate }: 
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-gray-500 font-medium">Delivery fee</span>
-                        <span className="font-bold text-gray-900">{stockpile.deliveryPaid ? "Paid" : "Not Paid"}</span>
+                        <span className="font-bold text-gray-900">
+                          {stockpile.deliveryPaid ? "Paid" : stockpile.deliveryDue && stockpile.deliveryDue > 0 ? `Not Paid (₦${stockpile.deliveryDue.toLocaleString()})` : "Not Paid"}
+                        </span>
                       </div>
                     </div>
                   </div>
