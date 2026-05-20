@@ -227,7 +227,7 @@ const sendWhatsAppText = async (to: string, text: string, context?: { stockpileI
   }
 };
 
-const sendWhatsAppNotification = async (to: string, templateName: string, params: string[], context?: { stockpileId?: string, vendorId?: string }) => {
+const sendWhatsAppNotification = async (to: string, templateName: string, params: string[], context?: { stockpileId?: string, vendorId?: string, fallbackText?: string }) => {
   const apiKey = process.env.KAPSO_API_KEY;
   const phoneId = process.env.KAPSO_SENDER_ID;
 
@@ -253,15 +253,19 @@ const sendWhatsAppNotification = async (to: string, templateName: string, params
   const finalTo = cleaned;
 
   // Construct fallbackText in case template fails immediately or asynchronously
-  let fallbackText = "";
-  if (templateName === "stockpile_reminder") {
-    fallbackText = `Hi ${params[0]}! 👋\n\nJust a friendly reminder from *${params[1]}* that your stockpile is closing on *${params[2]}*.\n\n💰 *Total:* ₦${params[3]}\n\n🔗 *View stockpile list here:* ${params[4]}\n\nThank you!`;
-  } else if (templateName === "stockpile_created") {
-    fallbackText = `Hi ${params[0]}! 👋\n\n*${params[1]}* has started a new stockpile for you.\n\n📦 *Items:* ${params[2]}\n💰 *Total:* ₦${params[3]}\n\n🔗 *View details here:* ${params[4]}`;
-  } else if (templateName === "stockpile_closed") {
-    fallbackText = `Hi ${params[0]}! 👋\n\nYour stockpile with *${params[1]}* has been closed.\n\n📦 *Items Summary:* ${params[2]}\n💰 *Final Total:* ₦${params[3]}\n\n🔗 *View details here:* ${params[4]}`;
-  } else if (templateName === "stockpile_extended") {
-    fallbackText = `Hi ${params[0]}! 👋\n\nYour stockpile with *${params[1]}* has been extended.\n\n📦 *Items:* ${params[2]}\n📅 *New Date:* ${params[3]}\n\n🔗 *View details here:* ${params[4]}`;
+  let fallbackText = context?.fallbackText || "";
+  if (!fallbackText) {
+    if (templateName === "stockpile_reminder") {
+      fallbackText = `Hi ${params[0]}! 👋\n\nJust a friendly reminder from *${params[1]}* that your stockpile is closing on *${params[2]}*.\n\n💰 *Total:* ₦${params[3]}\n\n🔗 *View stockpile list here:* ${params[4]}\n\nThank you!`;
+    } else if (templateName === "stockpile_created") {
+      fallbackText = `Hi ${params[0]}! 👋\n\n*${params[1]}* has started a new stockpile for you.\n\n💰 *Total:* ₦${params[2]}\n📅 *Closing Date:* ${params[3]}\n\n🔗 *View details here:* ${params[4]}`;
+    } else if (templateName === "stockpile_closed") {
+      fallbackText = `Hi ${params[0]}! 👋\n\nYour stockpile with *${params[1]}* has been closed.\n\n📦 *Items Summary:* ${params[2]}\n💰 *Final Total:* ₦${params[3]}\n\n🔗 *View details here:* ${params[4]}`;
+    } else if (templateName === "stockpile_extended") {
+      fallbackText = `Hi ${params[0]}! 👋\n\nYour stockpile with *${params[1]}* has been extended.\n\n📦 *Items:* ${params[2]}\n📅 *New Date:* ${params[3]}\n\n🔗 *View details here:* ${params[4]}`;
+    } else if (templateName === "stockpile_updated") {
+      fallbackText = `Hi ${params[0]}! 👋\n\n*${params[1]}* has updated your stockpile list.\n\n📦 *Items Added:* ${params[2]}\n💰 *Current Total:* ₦${params[3]}\n\n🔗 *Track here:* ${params[4]}`;
+    }
   }
 
   // Use v18.0 as it is standard for stable WhatsApp API endpoints
@@ -387,23 +391,25 @@ const sendStockpileCreatedNotification = async (vendor: any, stockpile: any) => 
     const publicUrl = `${baseUrl}/view/${stockpile._id}`;
 
     // COMPULSORY WhatsApp: Template: stockpile_created
-    // Params: {{1}}Customer, {{2}}Vendor, {{3}}Items, {{4}}Total, {{5}}Link
+    // Params: {{1}}Customer, {{2}}Vendor, {{3}}Total, {{4}}ClosingDate, {{5}}Link
     
     // Ensure params are stringified and not empty
     const itemsValue = (itemsSummary || "Variety of items").substring(0, 1000); // Caps at 1000 chars for safety
     const totalValue = (stockpile.totalAmount || 0).toLocaleString();
     
+    const fallbackText = `Hi ${stockpile.customerName || "Customer"}! 👋\n\n*${vendor.businessName || "Vendor"}* has started a new stockpile for you.\n\n📦 *Items:* ${itemsValue}\n💰 *Total:* ₦${totalValue}\n📅 *Closing Date:* ${closingDate}\n\n🔗 *View details here:* ${publicUrl}`;
+
     const sent = await sendWhatsAppNotification(
       stockpile.customerPhone, 
       "stockpile_created", 
       [
         (stockpile.customerName || "Customer").toString(), 
         (vendor.businessName || "Vendor").toString(), 
-        itemsValue.toString(), 
         totalValue.toString(), 
+        closingDate.toString(), 
         publicUrl.toString()
       ],
-      { stockpileId: stockpile._id, vendorId: vendor._id }
+      { stockpileId: stockpile._id, vendorId: vendor._id, fallbackText }
     );
 
     if (sent) {
@@ -467,11 +473,13 @@ const sendStockpileReminderNotification = async (vendor: any, stockpile: any) =>
 
     // COMPULSORY WhatsApp: Template: stockpile_reminder
     // Params: {{1}}Customer, {{2}}Vendor, {{3}}ClosingDate, {{4}}Total, {{5}}Link
+    const fallbackText = `Hi ${stockpile.customerName || "Customer"}! 👋\n\nJust a friendly reminder from *${vendor.businessName || "Vendor"}* that your stockpile is closing on *${closingDate || "Soon"}*.\n\n💰 *Total:* ₦${totalValue}\n\n🔗 *View stockpile list here:* ${publicUrl}\n\nThank you!`;
+
     const whatsappSent = await sendWhatsAppNotification(
       stockpile.customerPhone, 
       "stockpile_reminder", 
       finalParams,
-      { stockpileId: stockpile._id.toString(), vendorId: vendor._id.toString() }
+      { stockpileId: stockpile._id.toString(), vendorId: vendor._id.toString(), fallbackText }
     );
 
     // Email remains optional but common
@@ -522,11 +530,13 @@ const sendStockpileUpdateNotification = async (vendor: any, stockpile: any, item
 
     // COMPULSORY WhatsApp: Template: stockpile_updated
     // Params: {{1}}Customer, {{2}}Vendor, {{3}}ItemsAdded, {{4}}Total, {{5}}Link
+    const fallbackText = `Hi ${stockpile.customerName || "Customer"}! 👋\n\n*${vendor.businessName || "Vendor"}* has updated your stockpile list.\n\n📦 *Items Added:* ${itemsValue}\n💰 *Current Total:* ₦${totalValue}\n\n🔗 *Track here:* ${publicUrl}`;
+
     const sent = await sendWhatsAppNotification(
       stockpile.customerPhone, 
       "stockpile_updated", 
       finalParams,
-      { stockpileId: stockpile._id, vendorId: vendor._id }
+      { stockpileId: stockpile._id, vendorId: vendor._id, fallbackText }
     );
 
     if (sent) {
@@ -588,11 +598,13 @@ const sendStockpileExtensionNotification = async (vendor: any, stockpile: any) =
 
     // COMPULSORY WhatsApp: Template: stockpile_extended
     // Params: {{1}}Customer, {{2}}Vendor, {{3}}Items, {{4}}NewDate, {{5}}Link
+    const fallbackText = `Hi ${stockpile.customerName || "Customer"}! 👋\n\nYour stockpile with *${vendor.businessName || "Vendor"}* has been extended.\n\n📦 *Items:* ${itemsValue}\n📅 *New Date:* ${closingDate}\n\n🔗 *View details here:* ${publicUrl}`;
+
     const sent = await sendWhatsAppNotification(
       stockpile.customerPhone, 
       "stockpile_extended", 
       finalParams,
-      { stockpileId: stockpile._id, vendorId: vendor._id }
+      { stockpileId: stockpile._id, vendorId: vendor._id, fallbackText }
     );
 
     if (prefs.email !== false && stockpile.customerEmail) {
@@ -639,11 +651,13 @@ const sendStockpileClosedNotification = async (vendor: any, stockpile: any) => {
 
     // COMPULSORY WhatsApp: Template: stockpile_closed
     // Params: {{1}}Customer, {{2}}Vendor, {{3}}ItemsSummary, {{4}}FinalTotal, {{5}}Link
+    const fallbackText = `Hi ${stockpile.customerName || "Customer"}! 👋\n\nYour stockpile with *${vendor.businessName || "Vendor"}* has been closed.\n\n📦 *Items Summary:* ${itemsValue}\n💰 *Final Total:* ₦${totalValue}\n\n🔗 *View details here:* ${publicUrl}`;
+
     const sent = await sendWhatsAppNotification(
       stockpile.customerPhone, 
       "stockpile_closed", 
       finalParams,
-      { stockpileId: stockpile._id, vendorId: vendor._id }
+      { stockpileId: stockpile._id, vendorId: vendor._id, fallbackText }
     );
 
     if (prefs.email !== false && stockpile.customerEmail) {
