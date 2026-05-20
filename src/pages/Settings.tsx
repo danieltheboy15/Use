@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/contexts/ToastContext";
+import { reduceImageSize } from "@/lib/imageCompressor";
 
 export default function Settings() {
   const { user, updateProfile, fetchWithAuth } = useAuth();
@@ -122,29 +123,28 @@ export default function Settings() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Check file size (limit to 1MB for base64 storage to avoid MongoDB limits)
-    if (file.size > 1 * 1024 * 1024) {
-      showToast("File size too large. Please select an image under 1MB.", "error");
+    // Check file size (limit to 5MB max upload, but reduce to under 2MB for profile representation)
+    if (file.size > 5 * 1024 * 1024) {
+      showToast("File size too large. Please select an image under 5MB.", "error");
       return;
     }
 
     setIsUploadingPicture(true);
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      const base64String = reader.result as string;
-      const success = await updateProfile({ profilePicture: base64String });
-      setIsUploadingPicture(false);
+    try {
+      // Compress the image to ensure it is under 2MB
+      const compressedBase64 = await reduceImageSize(file);
+      const success = await updateProfile({ profilePicture: compressedBase64 });
       if (success) {
         showToast("Profile picture updated successfully");
       } else {
         showToast("Failed to update profile picture", "error");
       }
-    };
-    reader.onerror = () => {
+    } catch (error) {
+      console.error("Error reducing or uploading file:", error);
+      showToast("Error processing profile picture", "error");
+    } finally {
       setIsUploadingPicture(false);
-      showToast("Error reading file", "error");
-    };
-    reader.readAsDataURL(file);
+    }
   };
 
   const tabs = [
